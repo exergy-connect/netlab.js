@@ -6,6 +6,8 @@
   --accent: #3db8a0;
   --line: #2a3644;
   --edge: #6b849c;
+  --error: #f07178;
+  --error-bg: #2a1518;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
@@ -55,7 +57,7 @@ section {
 .editor {
   display: flex;
   flex-direction: column;
-  min-height: 70vh;
+  align-self: start;
 }
 
 label {
@@ -65,9 +67,12 @@ label {
 }
 
 textarea {
-  flex: 1;
+  display: block;
+  width: 100%;
   resize: vertical;
-  min-height: 360px;
+  overflow: hidden;
+  field-sizing: content;
+  min-height: 0;
   background: #0c1015;
   color: var(--ink);
   border: 1px solid var(--line);
@@ -100,6 +105,35 @@ button:hover {
 #status {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+#status.is-error {
+  color: var(--error);
+}
+
+.errors {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--error-bg);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--line));
+  border-radius: 8px;
+}
+
+.errors h2 {
+  margin: 0 0 0.4rem;
+  color: var(--error);
+  font-size: 0.85rem;
+}
+
+.errors ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #f5c2c7;
+  font: 12px/1.45 "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.errors li + li {
+  margin-top: 0.35rem;
 }
 
 .view {
@@ -169,8 +203,5 @@ pre {
 @media (max-width: 960px) {
   main {
     grid-template-columns: 1fr;
-  }
-  .editor {
-    min-height: auto;
   }
 }

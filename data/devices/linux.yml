@@ -1,12 +1,12 @@
 description: Generic Linux host
 interface_name: eth{ifindex}
-lag_interface_name: bond{lag.ifindex}
+lag_interface_name: "bond{lag.ifindex}"
 loopback_interface_name: lo{ifindex if ifindex else ""}
 mgmt_if: eth0
 role: host
 features:
   lag:
-    passive: false
+    passive: False
   routing:
     static: true
   initial:
@@ -17,8 +17,7 @@ features:
     ipv6:
       lla: true
       use_ra: true
-    roles:
-    - host
+    roles: [ host ]
 libvirt:
   image: bento/ubuntu-24.04
   create_image: netlab/linux
@@ -41,8 +40,8 @@ group_vars:
   ansible_ssh_pass: vagrant
   docker_shell: sh -il
   ansible_python_interpreter: auto_silent
-  netlab_lldp_enable: false
-  netlab_net_tools: false
+  netlab_lldp_enable: False
+  netlab_net_tools: False
 clab:
   node_config:
     initial: :ns
@@ -51,13 +50,9 @@ clab:
     routing: :ns
   features:
     initial:
-      roles:
-      - host
-      - bridge
-      generate_mac:
-      - svi
-      config_mode:
-      - sh
+      roles: [ host, bridge ]
+      generate_mac: [ svi ]
+      config_mode: [ sh ]
     vlan:
       mixed_trunk: true
       model: router
@@ -66,7 +61,7 @@ clab:
       svi_interface_name: vlan{vlan}
   image: python:3.13-alpine
   mtu: 1500
-  kmods: null
+  kmods:
   node:
     kind: linux
     config_templates:

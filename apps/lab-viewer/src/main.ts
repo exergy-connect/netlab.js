@@ -27,11 +27,12 @@ app.innerHTML = `
   <main>
     <section class="editor">
       <label for="src">Topology YAML</label>
-      <textarea id="src" spellcheck="false"></textarea>
+      <textarea id="src" spellcheck="false" rows="1"></textarea>
       <div class="actions">
         <button id="run" type="button">Transform</button>
         <span id="status"></span>
       </div>
+      <div id="errors" class="errors" hidden></div>
     </section>
     <section class="view">
       <div class="graph-wrap">
@@ -49,10 +50,45 @@ app.innerHTML = `
 const src = app.querySelector<HTMLTextAreaElement>("#src")!;
 const out = app.querySelector<HTMLPreElement>("#out")!;
 const status = app.querySelector<HTMLSpanElement>("#status")!;
+const errorsEl = app.querySelector<HTMLDivElement>("#errors")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
 const runBtn = app.querySelector<HTMLButtonElement>("#run")!;
 
 src.value = SAMPLE;
+
+function fitTextarea(): void {
+  src.style.height = "auto";
+  src.style.height = `${src.scrollHeight}px`;
+}
+
+function clearErrors(): void {
+  errorsEl.hidden = true;
+  errorsEl.innerHTML = "";
+  status.classList.remove("is-error");
+}
+
+function showErrors(messages: string[]): void {
+  if (!messages.length) {
+    clearErrors();
+    return;
+  }
+  status.classList.add("is-error");
+  errorsEl.hidden = false;
+  errorsEl.innerHTML = `
+    <h2>Transform errors</h2>
+    <ul>
+      ${messages.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
 
 function renderGraph(topology: Topology): void {
   const nodes = Object.keys(topology.nodes ?? {});
@@ -105,6 +141,7 @@ function renderGraph(topology: Topology): void {
 
 function run(): void {
   status.textContent = "Running…";
+  clearErrors();
   try {
     const parsed = yaml.load(src.value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -118,15 +155,27 @@ function run(): void {
     out.textContent = JSON.stringify(result, null, 2);
     renderGraph(result);
     const errs = diagnostics.list().filter((d) => d.severity === "error");
-    status.textContent = errs.length
-      ? `${errs.length} error(s); stages: ${JSON.stringify(stages)}`
-      : `OK — stages: ${JSON.stringify(stages)}`;
+    if (errs.length) {
+      status.textContent = `${errs.length} error(s); stages: ${JSON.stringify(stages)}`;
+      showErrors(
+        errs.map((d) => {
+          const where = d.path ? ` (${d.path})` : "";
+          return `[${d.module}/${d.code}] ${d.message}${where}`;
+        }),
+      );
+    } else {
+      status.textContent = `OK — stages: ${JSON.stringify(stages)}`;
+    }
   } catch (e) {
-    status.textContent = e instanceof Error ? e.message : String(e);
+    const message = e instanceof Error ? e.message : String(e);
+    status.textContent = "Transform failed";
+    showErrors([message]);
     out.textContent = "";
     graph.innerHTML = "";
   }
 }
 
+src.addEventListener("input", fitTextarea);
 runBtn.addEventListener("click", run);
+fitTextarea();
 run();

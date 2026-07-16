@@ -13,6 +13,9 @@ describe("devices + quirks", () => {
     assert.ok(devices.bird);
     assert.equal(devices.bird!.daemon, true);
     assert.equal(devices.bird!.parent, "linux");
+    // bird.yml has no role; inherits host from linux (Netlab daemon semantics)
+    assert.equal(devices.bird!.role, "host");
+    assert.equal(devices.linux!.role, "host");
     assert.ok(getDevice("frr").interface_name);
   });
 
