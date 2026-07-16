@@ -8,7 +8,7 @@ module netlab-types {
 
   revision 2026-07-16 {
     description
-      "Add iosv device and vlan_member link type (attributes.yml parity).";
+      "device-name is an open id string (runtime still remaps unsupported devices).";
   }
 
   typedef stage-name {
@@ -22,14 +22,14 @@ module netlab-types {
   }
 
   typedef device-name {
-    type enumeration {
-      enum none;
-      enum linux;
-      enum frr;
-      enum bird;
-      enum iosv;
+    type string {
+      length "1..32";
+      pattern '[A-Za-z]([-_.A-Za-z0-9]*[A-Za-z0-9])?';
     }
-    description "Supported device identities.";
+    description
+      "Device identity string. Runtime supports a subset (none, linux, frr,
+       bird, iosv) and remaps others with a warning; YANG accepts any valid id
+       so lab topologies using other Netlab platforms still validate.";
   }
 
   typedef provider-name {

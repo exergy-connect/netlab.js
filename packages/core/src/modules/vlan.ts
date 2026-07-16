@@ -456,6 +456,12 @@ function setSviNeighborList(node: Node, topology: Topology): void {
 function cleanupVlanFlags(topology: Topology): void {
   for (const link of topology.links ?? []) {
     delete (link as JsonObject).vlan_name;
+    for (const intf of (link.interfaces as JsonObject[] | undefined) ?? []) {
+      if (intf._vlan_mode !== undefined) {
+        intf.vlan = { ...((intf.vlan as JsonObject) ?? {}), mode: intf._vlan_mode };
+        delete intf._vlan_mode;
+      }
+    }
   }
   for (const node of Object.values(topology.nodes ?? {})) {
     for (const intf of node.interfaces ?? []) {

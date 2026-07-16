@@ -8,7 +8,7 @@ module netlab-device {
   }
 
   organization "Exergy Connect";
-  description "Device registry schema (none, linux, frr, bird, iosv).";
+  description "Device registry schema (open device-name; runtime subset varies).";
 
   revision 2026-07-16 {
     description "Initial revision.";

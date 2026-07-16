@@ -11,7 +11,34 @@ module netlab-vlan {
   description "VLAN module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description
+      "Cover transform output: node vlan, bridge_group, SVI mode, neighbor/link
+       interface vlan containers, access_id.";
+  }
+
+  grouping vlan-if-attrs {
+    description "VLAN attributes on a physical or SVI interface.";
+    leaf access {
+      type string;
+    }
+    leaf-list trunk {
+      type string;
+    }
+    leaf native {
+      type string;
+    }
+    leaf mode {
+      type string;
+    }
+    leaf name {
+      type string;
+      description "VLAN name on SVI interfaces.";
+    }
+    leaf access_id {
+      type uint16 {
+        range "1..4094";
+      }
+    }
   }
 
   augment "/nt:topology" {
@@ -28,6 +55,9 @@ module netlab-vlan {
       leaf mode {
         type string;
       }
+      leaf bridge_group {
+        type uint32;
+      }
       container prefix {
         leaf ipv4 { type string; }
         leaf ipv6 { type string; }
@@ -40,6 +70,15 @@ module netlab-vlan {
   }
 
   augment "/nt:topology/nt:nodes" {
+    container vlan {
+      description "Node-level VLAN module state (e.g. max_bridge_group).";
+      leaf mode {
+        type string;
+      }
+      leaf max_bridge_group {
+        type uint32;
+      }
+    }
     list vlans {
       key "name";
       leaf name {
@@ -53,6 +92,9 @@ module netlab-vlan {
       leaf mode {
         type string;
       }
+      leaf bridge_group {
+        type uint32;
+      }
       container prefix {
         leaf ipv4 { type string; }
         leaf ipv6 { type string; }
@@ -62,29 +104,33 @@ module netlab-vlan {
 
   augment "/nt:topology/nt:links" {
     container vlan {
-      leaf access {
-        type string;
-      }
-      leaf-list trunk {
-        type string;
-      }
-      leaf mode {
-        type string;
-      }
+      uses vlan-if-attrs;
+    }
+  }
+
+  augment "/nt:topology/nt:links/nt:interfaces" {
+    container vlan {
+      uses vlan-if-attrs;
     }
   }
 
   augment "/nt:topology/nt:nodes/nt:interfaces" {
+    leaf mode {
+      type string;
+      description "Copied onto SVI from VLAN data during transform.";
+    }
+    leaf bridge_group {
+      type uint32;
+      description "Copied onto SVI from VLAN data during transform.";
+    }
     container vlan {
-      leaf access {
-        type string;
-      }
-      leaf-list trunk {
-        type string;
-      }
-      leaf mode {
-        type string;
-      }
+      uses vlan-if-attrs;
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" {
+    container vlan {
+      uses vlan-if-attrs;
     }
   }
 }
