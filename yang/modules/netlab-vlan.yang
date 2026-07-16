@@ -28,6 +28,35 @@ module netlab-vlan {
       leaf mode {
         type string;
       }
+      container prefix {
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+      }
+      leaf-list links {
+        type string;
+        description "Access-link shorthand (e.g. dut-h1).";
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    list vlans {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf id {
+        type uint16 {
+          range "1..4094";
+        }
+      }
+      leaf mode {
+        type string;
+      }
+      container prefix {
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+      }
     }
   }
 

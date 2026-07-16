@@ -40,6 +40,10 @@ app.innerHTML = `
       <textarea id="src" spellcheck="false" rows="1"></textarea>
       <div class="actions">
         <button id="run" type="button">Transform</button>
+        <label class="check">
+          <input id="validate" type="checkbox" />
+          Validate (YANG)
+        </label>
         <span id="status"></span>
       </div>
       <div id="errors" class="errors" hidden></div>
@@ -63,6 +67,7 @@ const status = app.querySelector<HTMLSpanElement>("#status")!;
 const errorsEl = app.querySelector<HTMLDivElement>("#errors")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
 const runBtn = app.querySelector<HTMLButtonElement>("#run")!;
+const validateBox = app.querySelector<HTMLInputElement>("#validate")!;
 
 src.value = SAMPLE;
 
@@ -160,11 +165,13 @@ function run(): void {
     // Browser has no fs; apply defaults via string load path helpers
     const topology = loadTopologyString(src.value);
     const { topology: result, diagnostics, stages } = transform(topology, {
-      validate: false,
+      validate: validateBox.checked,
+      yangDir: "/yang",
     });
     out.textContent = JSON.stringify(result, null, 2);
     renderGraph(result);
     const errs = diagnostics.list().filter((d) => d.severity === "error");
+    const warns = diagnostics.list().filter((d) => d.severity === "warning");
     if (errs.length) {
       status.textContent = `${errs.length} error(s); stages: ${JSON.stringify(stages)}`;
       showErrors(
@@ -174,7 +181,9 @@ function run(): void {
         }),
       );
     } else {
-      status.textContent = `OK — stages: ${JSON.stringify(stages)}`;
+      status.textContent = warns.length
+        ? `OK with ${warns.length} warning(s) — stages: ${JSON.stringify(stages)}`
+        : `OK — stages: ${JSON.stringify(stages)}`;
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

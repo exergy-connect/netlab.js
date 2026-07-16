@@ -21,5 +21,16 @@ export function systemDefaults(): JsonObject {
     isis: {
       type: "level-2",
     },
+    vxlan: {
+      domain: "global",
+      flooding: "static",
+      start_vni: 100000,
+      use_v6_vtep: false,
+    },
+    evpn: {
+      session: ["ibgp"],
+      transport: "vxlan",
+      start_transit_vni: 200000,
+    },
   };
 }

@@ -1,0 +1,56 @@
+module netlab-vxlan {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:vxlan";
+  prefix vxlan;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "VXLAN module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    container vxlan {
+      leaf domain { type string; }
+      leaf flooding { type string; }
+      leaf-list vlans { type string; }
+      leaf use_v6_vtep { type boolean; }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    container vxlan {
+      leaf domain { type string; }
+      leaf flooding { type string; }
+      leaf-list vlans { type string; }
+      leaf vtep { type string; }
+      leaf vtep_interface { type string; }
+      leaf transport { type string; }
+      leaf-list vtep_list { type string; }
+      leaf-list l3vnis { type string; }
+    }
+  }
+
+  augment "/nt:topology/nt:vlans" {
+    leaf vni {
+      type uint32 {
+        range "1..16777215";
+      }
+    }
+    leaf-list vtep_list { type string; }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:vlans" {
+    leaf vni {
+      type uint32 {
+        range "1..16777215";
+      }
+    }
+    leaf-list vtep_list { type string; }
+  }
+}

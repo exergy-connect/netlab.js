@@ -4,9 +4,10 @@ import { loadDevices } from "../devices/registry.js";
 import { createNodeDict, applyNodeDeviceDefaults, transformNodes } from "../nodes/nodes.js";
 import { canonicalizeLinks, transformLinks } from "../links/links.js";
 import { setupAddressing } from "../addressing/ipam.js";
-import { initGroups, copyGroupData } from "../groups/groups.js";
+import { initGroups, autoCreateGroupMembers, copyGroupData } from "../groups/groups.js";
 import { expandComponents } from "../components/components.js";
 import {
+  checkUnknownModules,
   collectTopologyModules,
   copyNodeModuleAttrsToInterfaces,
   mergeModuleParams,
@@ -37,8 +38,9 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   applyDefaults(topology);
   selectProvider(topology, ctx);
 
-  topology.nodes = createNodeDict(topology.nodes, diagnostics);
   initGroups(topology);
+  autoCreateGroupMembers(topology);
+  topology.nodes = createNodeDict(topology.nodes, diagnostics);
   expandComponents(topology);
   canonicalizeLinks(topology, diagnostics);
   copyGroupData(topology);
@@ -55,6 +57,7 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   }
 
   mergeModuleParams(topology);
+  checkUnknownModules(topology, diagnostics);
   runModuleHook("module_init", topology, ctx);
   setupAddressing(topology);
 

@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createNodeDict } from "../../src/nodes/nodes.js";
-import { initGroups, copyGroupData } from "../../src/groups/groups.js";
+import { initGroups, autoCreateGroupMembers, copyGroupData } from "../../src/groups/groups.js";
 import { expandComponents } from "../../src/components/components.js";
+import { loadTopologyString } from "../../src/load/load.js";
+import { transform } from "../../src/transform/orchestrator.js";
 import type { Topology } from "../../src/types.js";
 
 describe("groups and components", () => {
@@ -17,6 +19,55 @@ describe("groups and components", () => {
     copyGroupData(topology);
     assert.equal(topology.nodes!.r1!.device, "frr");
     assert.deepEqual(topology.nodes!.r1!.module, ["ospf"]);
+  });
+
+  it("auto-creates nodes from groups._auto_create", () => {
+    const topology: Topology = {
+      groups: {
+        _auto_create: true,
+        hosts: { members: ["h1", "h2"], device: "linux" },
+        switches: { members: ["s1", "hosts"], device: "frr", module: ["ospf"] },
+      },
+    };
+    initGroups(topology);
+    autoCreateGroupMembers(topology);
+    topology.nodes = createNodeDict(topology.nodes);
+    copyGroupData(topology);
+    assert.ok(topology.nodes!.h1);
+    assert.ok(topology.nodes!.h2);
+    assert.ok(topology.nodes!.s1);
+    assert.equal(topology.nodes!.hosts, undefined); // group name not created as node
+    assert.equal(topology.nodes!.h1!.device, "linux");
+    assert.equal(topology.nodes!.s1!.device, "frr");
+    assert.deepEqual(topology.nodes!.s1!.module, ["ospf"]);
+  });
+
+  it("auto-creates EVPN/VXLAN group members without unknown-module errors", () => {
+    const topo = loadTopologyString(`
+defaults.device: frr
+provider: clab
+groups:
+  _auto_create: True
+  switches:
+    members: [ dut, s2 ]
+    module: [ vlan, vxlan, ospf, bgp, evpn ]
+bgp.as: 65000
+vlans:
+  red:
+    mode: bridge
+nodes: {}
+links:
+  - dut:
+    s2:
+`);
+    const { topology, diagnostics } = transform(topo, { validate: false });
+    assert.ok(topology.nodes!.dut);
+    assert.ok(topology.nodes!.s2);
+    assert.ok((topology.nodes!.dut!.module ?? []).includes("vxlan"));
+    assert.ok((topology.nodes!.dut!.module ?? []).includes("evpn"));
+    assert.equal((topology.vxlan as { flooding?: string }).flooding, "evpn");
+    const unknown = diagnostics.list().filter((d) => d.message.includes("Unknown module"));
+    assert.equal(unknown.length, 0);
   });
 
   it("expands component includes into prefixed nodes/links", () => {

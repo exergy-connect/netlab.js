@@ -49,6 +49,10 @@ module netlab-topology {
       leaf device {
         type ntype:device-name;
       }
+      leaf provider {
+        type ntype:provider-name;
+        description "Per-node provider override (e.g. from groups).";
+      }
       leaf id {
         type uint32 {
           range "1..150";
@@ -65,31 +69,6 @@ module netlab-topology {
       }
       leaf _daemon_parent {
         type string;
-      }
-      container ospf {
-        leaf area { type string; }
-        leaf router_id { type string; }
-        leaf passive { type boolean; }
-        container af {
-          leaf ipv4 { type boolean; }
-          leaf ipv6 { type boolean; }
-        }
-      }
-      container bgp {
-        leaf as { type uint32; }
-        leaf router_id { type string; }
-      }
-      container isis {
-        leaf area { type string; }
-        leaf net { type string; }
-        leaf type { type string; }
-      }
-      list vrfs {
-        key "name";
-        leaf name { type string; }
-        leaf rd { type string; }
-        leaf-list import { type string; }
-        leaf-list export { type string; }
       }
       container mgmt {
         leaf ipv4 {
@@ -156,22 +135,6 @@ module netlab-topology {
         leaf vrf {
           type string;
         }
-        container ospf {
-          leaf area { type string; }
-          leaf network_type { type string; }
-          leaf cost { type uint32; }
-          leaf passive { type boolean; }
-        }
-        container isis {
-          leaf network_type { type string; }
-          leaf metric { type uint32; }
-          leaf passive { type boolean; }
-        }
-        container vlan {
-          leaf access { type string; }
-          leaf-list trunk { type string; }
-          leaf mode { type string; }
-        }
         list neighbors {
           key "node";
           leaf node {
@@ -205,8 +168,7 @@ module netlab-topology {
         type string;
         description
           "Internal diagnostic name. Runtime stores netlab-internal:_linkname;
-           the validate adapter maps that qualified member onto this leaf until
-           cross-module augment merge is available in xYang TS.";
+           the validate adapter maps that qualified member onto this leaf.";
       }
       must "/topology/stage = 'user_input' or _linkname" {
         error-message "netlab-internal:_linkname is required after user_input stage";
@@ -224,6 +186,9 @@ module netlab-topology {
       leaf bandwidth {
         type uint64;
       }
+      leaf mtu {
+        type uint16;
+      }
       container prefix {
         leaf ipv4 {
           type ntype:ipv4-prefix;
@@ -234,16 +199,6 @@ module netlab-topology {
         leaf allocation {
           type string;
         }
-      }
-      container ospf {
-        leaf area { type string; }
-        leaf cost { type uint32; }
-        leaf network_type { type string; }
-      }
-      container vlan {
-        leaf access { type string; }
-        leaf-list trunk { type string; }
-        leaf mode { type string; }
       }
       list interfaces {
         key "node";
@@ -269,32 +224,6 @@ module netlab-topology {
         error-message "linkindex is required after user_input stage";
         error-app-tag "MISSING";
       }
-    }
-
-    container ospf {
-      leaf area { type string; }
-    }
-    container bgp {
-      leaf as { type uint32; }
-    }
-    container isis {
-      leaf area { type string; }
-      leaf type { type string; }
-    }
-    list vlans {
-      key "name";
-      leaf name { type string; }
-      leaf id {
-        type uint16 { range "1..4094"; }
-      }
-      leaf mode { type string; }
-    }
-    list vrfs {
-      key "name";
-      leaf name { type string; }
-      leaf rd { type string; }
-      leaf-list import { type string; }
-      leaf-list export { type string; }
     }
 
     container addressing {
@@ -332,8 +261,14 @@ module netlab-topology {
       leaf device {
         type ntype:device-name;
       }
+      leaf provider {
+        type ntype:provider-name;
+      }
       leaf-list module {
         type string;
+      }
+      leaf _auto_create {
+        type boolean;
       }
     }
   }

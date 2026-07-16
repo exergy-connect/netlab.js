@@ -1,11 +1,15 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseYangFile, YangValidator, type YangModule } from "@exergy-connect/xyang";
+import { YangParser, YangValidator, type YangModule } from "@exergy-connect/xyang";
 
 let cachedModule: YangModule | undefined;
 let cachedYangDir: string | undefined;
 
 export function defaultYangDir(): string {
+  // Browser / Vite: lab-viewer fs shim serves the tree at /yang
+  if (!import.meta.url.startsWith("file:")) {
+    return "/yang";
+  }
   // packages/core/src/validate -> repo yang/
   const here = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(here, "../../../../yang");
@@ -17,10 +21,10 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
   const topologyPath = path.join(yangDir, "netlab-topology.yang");
   const includePaths = [yangDir, path.join(yangDir, "modules")];
 
-  // Parse host module with includes so imports/augments resolve
-  const module = parseYangFile(topologyPath, { includePath: includePaths });
+  // One parser cache so modular augment modules mutate the shared host schema.
+  const parser = new YangParser({ include_path: includePaths, expand_uses: true });
+  const module = parser.parseFile(topologyPath);
 
-  // Also parse augment modules so they merge (xYang expands augments when loading via include path)
   for (const extra of [
     "netlab-internal.yang",
     "modules/netlab-ospf.yang",
@@ -28,16 +32,17 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
     "modules/netlab-vlan.yang",
     "modules/netlab-vrf.yang",
     "modules/netlab-isis.yang",
+    "modules/netlab-vxlan.yang",
+    "modules/netlab-evpn.yang",
   ]) {
     try {
-      parseYangFile(path.join(yangDir, extra), { includePath: includePaths });
+      parser.parseFile(path.join(yangDir, extra));
     } catch {
       // optional during early scaffold
     }
   }
 
-  // Re-parse topology with all modules on the include path so augments apply
-  cachedModule = parseYangFile(topologyPath, { includePath: includePaths });
+  cachedModule = module;
   cachedYangDir = yangDir;
   return cachedModule;
 }

@@ -47,6 +47,10 @@ module netlab-bgp {
         leaf ipv6 {
           type string;
         }
+        leaf evpn {
+          type string;
+          description "EVPN address-family activation (e.g. ipv4).";
+        }
       }
     }
   }

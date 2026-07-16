@@ -1,0 +1,54 @@
+module netlab-evpn {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:evpn";
+  prefix evpn;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "EVPN module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    container evpn {
+      leaf-list session { type string; }
+      leaf transport { type string; }
+      leaf-list vlans { type string; }
+      leaf-list vrfs { type string; }
+      leaf as { type uint32; }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    container evpn {
+      leaf-list session { type string; }
+      leaf transport { type string; }
+      leaf-list vlans { type string; }
+      leaf-list vrfs { type string; }
+      leaf domain { type string; }
+    }
+  }
+
+  augment "/nt:topology/nt:vlans" {
+    container evpn {
+      leaf evi { type uint32; }
+      leaf rd { type string; }
+      leaf-list import { type string; }
+      leaf-list export { type string; }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:vlans" {
+    container evpn {
+      leaf evi { type uint32; }
+      leaf rd { type string; }
+      leaf-list import { type string; }
+      leaf-list export { type string; }
+    }
+  }
+}

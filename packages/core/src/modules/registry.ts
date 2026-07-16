@@ -2,9 +2,11 @@ import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 import { deepMerge } from "../data/merge.js";
 import * as vlanMod from "./vlan.js";
 import * as vrfMod from "./vrf.js";
+import * as vxlanMod from "./vxlan.js";
 import * as ospfMod from "./ospf.js";
 import * as isisMod from "./isis.js";
 import * as bgpMod from "./bgp.js";
+import * as evpnMod from "./evpn.js";
 
 export type ModuleHooks = {
   name: string;
@@ -37,9 +39,11 @@ function asHooks(m: {
 const MODULES: ModuleHooks[] = [
   asHooks(vlanMod),
   asHooks(vrfMod),
+  asHooks(vxlanMod),
   asHooks(ospfMod),
   asHooks(isisMod),
   asHooks(bgpMod),
+  asHooks(evpnMod),
 ];
 
 export function listModules(): ModuleHooks[] {
@@ -77,16 +81,30 @@ export function collectTopologyModules(topology: Topology): string[] {
   return sortModules([...set]);
 }
 
+/** Keys kept in defaults only (Netlab module `no_propagate` subset). */
+const NO_PROPAGATE: Record<string, string[]> = {
+  vxlan: ["start_vni"],
+  evpn: ["start_transit_vni"],
+};
+
 export function mergeModuleParams(topology: Topology): void {
   const defaults = (topology.defaults ?? {}) as JsonObject;
+  const implemented = new Set(MODULES.map((m) => m.name));
   for (const m of collectTopologyModules(topology)) {
+    // Do not materialize unknown modules as empty node containers
+    if (!implemented.has(m)) continue;
     const modDefault = (defaults[m] as JsonObject) ?? {};
     const topoMod = (topology[m] as JsonObject) ?? {};
-    topology[m] = deepMerge(modDefault, topoMod);
+    const mergedTopo = deepMerge(modDefault, topoMod);
+    for (const key of NO_PROPAGATE[m] ?? []) delete mergedTopo[key];
+    topology[m] = mergedTopo;
     for (const node of Object.values(topology.nodes ?? {})) {
       if (!(node.module ?? []).includes(m)) continue;
       const nodeMod = (node[m] as JsonObject) ?? {};
-      node[m] = deepMerge(topology[m] as JsonObject, nodeMod);
+      const merged = deepMerge(topology[m] as JsonObject, nodeMod);
+      // Skip empty containers — YANG has no node-level vlan/vrf stubs by default
+      if (Object.keys(merged).length === 0) continue;
+      node[m] = merged;
     }
   }
 }
@@ -135,5 +153,35 @@ export function copyNodeModuleAttrsToInterfaces(topology: Topology): void {
         intf[mod] = dst;
       }
     }
+  }
+}
+
+/** Report modules that are not implemented (Netlab `check_supported_node_devices` subset). */
+export function checkUnknownModules(
+  topology: Topology,
+  diagnostics: TransformContext["diagnostics"],
+): void {
+  const known = new Set(MODULES.map((m) => m.name));
+  for (const node of Object.values(topology.nodes ?? {})) {
+    for (const m of node.module ?? []) {
+      if (known.has(m)) continue;
+      diagnostics.error({
+        code: "VALUE",
+        category: "VALUE",
+        module: "modules",
+        message: `Unknown module ${m} used by node ${node.name}`,
+        path: `nodes.${node.name}.module`,
+      });
+    }
+  }
+  for (const m of topology.module ?? []) {
+    if (known.has(m)) continue;
+    diagnostics.error({
+      code: "VALUE",
+      category: "VALUE",
+      module: "modules",
+      message: `Unknown module ${m}`,
+      path: "module",
+    });
   }
 }

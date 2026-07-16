@@ -19,6 +19,12 @@ export function toYangInstance(topology: Topology): JsonObject {
         return copy;
       });
     }
+    if (n.vlans && typeof n.vlans === "object" && !Array.isArray(n.vlans)) {
+      n.vlans = dictToNamedList(n.vlans);
+    }
+    if (n.vrfs && typeof n.vrfs === "object" && !Array.isArray(n.vrfs)) {
+      n.vrfs = dictToNamedList(n.vrfs);
+    }
     dequalifyInternalKeys(n);
     return n;
   });
@@ -61,6 +67,8 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.ospf) topoObj.ospf = topology.ospf;
   if (topology.bgp) topoObj.bgp = topology.bgp;
   if (topology.isis) topoObj.isis = topology.isis;
+  if (topology.vxlan) topoObj.vxlan = topology.vxlan;
+  if (topology.evpn) topoObj.evpn = topology.evpn;
   if (topology.vlans) topoObj.vlans = dictToNamedList(topology.vlans);
   if (topology.vrfs) topoObj.vrfs = dictToNamedList(topology.vrfs);
 

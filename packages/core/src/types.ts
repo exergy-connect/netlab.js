@@ -25,6 +25,7 @@ export type Stage = "user_input" | "normalized" | "addressed" | "transformed";
 export type Node = JsonObject & {
   name?: string;
   device?: string;
+  provider?: string;
   id?: number;
   role?: string;
   module?: string[];
@@ -77,8 +78,11 @@ export type Neighbor = JsonObject & {
 export type Group = JsonObject & {
   members?: string[];
   device?: string;
+  provider?: string;
   module?: string[];
   node_data?: JsonObject;
+  type?: string;
+  _auto_create?: boolean | string;
 };
 
 export type DeviceDef = JsonObject & {
