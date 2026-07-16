@@ -57,6 +57,7 @@ yang/                 YANG model (netlab-topology + module augments)
 data/                 Embedded Netlab YAML (devices, daemons, modules, defaults)
 packages/core/        @exergy-connect/netlab transform + validation library
 apps/lab-viewer/      Browser UI (Vite)
+xframe/               xFrame.present content plugin (netlab topology viz)
 docs/                 GitHub Pages build of the lab viewer
 tools/                embed-data, sync-docs, …
 ```

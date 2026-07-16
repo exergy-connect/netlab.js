@@ -4,3 +4,6 @@ dist/
 .DS_Store
 apps/lab-viewer/dist/
 apps/lab-viewer/src/yang-files-data.ts
+xframe/.xframe/
+xframe/*.html
+xframe/*.xp.json

@@ -1,0 +1,56 @@
+---
+presentation: slidedeck
+themes: [light, dark]
+title: Netlab topology content plugin
+style:
+  text_align: center
+# Full lab for the dynamic slide (all layers).
+lab: |
+  ```netlab
+  defaults:
+    device: frr
+  provider: clab
+  name: triangle
+  module: [bgp, ospf]
+  bgp:
+    as: 65000
+  nodes:
+    r1:
+    r2:
+    r3:
+  links:
+    - [r1, r2]
+    - [r2, r3]
+    - [r1, r3]
+  ```
+---
+# Netlab topologies in xFrame
+
+A local content plugin under `plugins/netlab-topology` turns fenced `netlab`
+YAML into layered physical + virtual graphs. Static slides pick layers with
+`@image` `show:`; dynamic slides expose interactive filters at runtime.
+
+---
+# Static — nodes, BGP, IP (no OSPF)
+
+`@image` with `show: nodes,links,bgp,ip` asks the plugin for a cached SVG that
+omits the OSPF overlay even though the lab enables OSPF.
+
+@region main
+@image
+  caption: Triangle — physical + iBGP + addresses
+  alt: Netlab topology with BGP and IP layers
+  show: nodes,links,bgp,ip
+  content: |
+    {{ lab }}
+
+---
+@evaluation dynamic
+# Dynamic — interactive layers
+
+Same transformed topology: toggle OSPF, BGP, and IP; click a node to focus its
+neighbors; use **zoom** (or double-click the canvas) for an enlarged view.
+Theme switches in the HUD recolor the mount via CSS tokens.
+
+@region main
+{{ lab }}
