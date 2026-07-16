@@ -18,7 +18,7 @@ module netlab-topology {
 
   revision 2026-07-16 {
     description
-      "Core attributes.yml parity: node/link/interface/pool/group fields.";
+      "Add interface pool and link node_count (transform output).";
   }
 
   container topology {
@@ -188,6 +188,10 @@ module netlab-topology {
         leaf role {
           type string;
         }
+        leaf pool {
+          type string;
+          description "Address pool name copied from the parent link.";
+        }
         leaf bridge {
           type string;
         }
@@ -258,6 +262,10 @@ module netlab-topology {
       }
       leaf pool {
         type string;
+      }
+      leaf node_count {
+        type uint32;
+        description "Number of attachment points on the link (set during transform).";
       }
       leaf disable {
         type boolean;

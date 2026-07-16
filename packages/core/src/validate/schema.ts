@@ -35,10 +35,13 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
     "modules/netlab-vxlan.yang",
     "modules/netlab-evpn.yang",
   ]) {
+    const extraPath = path.join(yangDir, extra);
     try {
-      parser.parseFile(path.join(yangDir, extra));
-    } catch {
-      // optional during early scaffold
+      parser.parseFile(extraPath);
+    } catch (err) {
+      // Module YANG may be absent in partial checkouts; fail loud when present but broken.
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== "ENOENT") throw err;
     }
   }
 

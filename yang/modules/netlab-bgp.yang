@@ -11,7 +11,8 @@ module netlab-bgp {
   description "BGP module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description
+      "Add interface/link BGP containers (attributes.yml module attrs).";
   }
 
   augment "/nt:topology" {
@@ -51,6 +52,28 @@ module netlab-bgp {
           type string;
           description "EVPN address-family activation (e.g. ipv4).";
         }
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    container bgp {
+      leaf local_as {
+        type uint32;
+      }
+      leaf replace_global_as {
+        type boolean;
+      }
+      leaf advertise {
+        type boolean;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:links" {
+    container bgp {
+      leaf advertise {
+        type boolean;
       }
     }
   }

@@ -27,3 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Unsupported-device fallback:** tests use a truly unsupported device (`eos`) for the frr remap warning; `iosv` is supported and no longer rewritten to `frr`.
+- **Lab-viewer YANG load:** fs shim no longer treats `/yang/modules/<host-module>.yang` as existing via basename fallback, so BGP/OSPF/`augment` modules mutate the cached host schema instead of a duplicate (fixes `Unknown field 'bgp'` on nodes).
+- **Pool unnumbered markers:** `ntype:ipv4-prefix` / `ipv6-prefix` are unions of string and boolean so YAML `ipv4: True` validates (requires `@exergy-connect/xyang` ≥ 0.1.5 for imported typedef resolution).
+- **Transform schema gaps:** `interfaces.pool`, `links.node_count`, and interface/link `bgp` containers so BGP labs (e.g. dual-stack RFC 8950) validate past the addressed stage.

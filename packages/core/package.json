@@ -30,7 +30,7 @@
     "test:compat": "tsx --test tests/compatibility/**/*.test.ts"
   },
   "dependencies": {
-    "@exergy-connect/xyang": "^0.1.4",
+    "@exergy-connect/xyang": "file:../../../xYang/ts",
     "ipaddr.js": "^2.2.0",
     "js-yaml": "^4.1.0"
   },
