@@ -29,13 +29,20 @@ header {
   padding: 1.25rem 1.5rem 0.5rem;
 }
 
+header .build-time {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+  font: 11px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
 header h1 {
   margin: 0;
   font-size: 1.75rem;
   letter-spacing: 0.02em;
 }
 
-header p {
+header > p:not(.build-time) {
   margin: 0.35rem 0 0;
   color: var(--muted);
 }

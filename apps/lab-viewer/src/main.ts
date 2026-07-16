@@ -6,6 +6,8 @@ import {
 } from "@exergy-connect/netlab";
 import "./style.css";
 
+declare const __BUILD_TIME__: string;
+
 const SAMPLE = `defaults:
   device: frr
 provider: clab
@@ -18,9 +20,17 @@ links:
   - [r1, r2]
 `;
 
+function formatBuildTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+}
+
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
+    <p class="build-time" title="Build timestamp">Built ${formatBuildTime(__BUILD_TIME__)}</p>
     <h1>netlab.js</h1>
     <p>Load a topology, transform it, inspect JSON and a simple graph.</p>
   </header>
