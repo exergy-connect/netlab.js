@@ -2,11 +2,14 @@ import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 
 export const name = "evpn";
-export const transform_after = ["vlan", "vxlan", "vrf"];
-export const requires = ["bgp"];
 
 function vlanDict(topology: Topology): Record<string, JsonObject> {
   return (topology.vlans as Record<string, JsonObject> | undefined) ?? {};
+}
+
+function evpnDefaults(topology: Topology): JsonObject {
+  const d = (topology.defaults as JsonObject | undefined)?.evpn;
+  return d && typeof d === "object" && !Array.isArray(d) ? (d as JsonObject) : {};
 }
 
 function bgpAsn(topology: Topology, node?: Node): number | undefined {
@@ -14,16 +17,16 @@ function bgpAsn(topology: Topology, node?: Node): number | undefined {
   if (Number.isFinite(nodeAs) && nodeAs > 0) return nodeAs;
   const topoAs = Number((topology.bgp as JsonObject | undefined)?.as);
   if (Number.isFinite(topoAs) && topoAs > 0) return topoAs;
-  const evpnAs = Number((topology.evpn as JsonObject | undefined)?.as);
+  // evpn.as is no_propagate — check topology override then defaults
+  const evpnAs = Number(
+    (topology.evpn as JsonObject | undefined)?.as ?? evpnDefaults(topology).as,
+  );
   if (Number.isFinite(evpnAs) && evpnAs > 0) return evpnAs;
   return undefined;
 }
 
 export function module_init(topology: Topology, _ctx: TransformContext): void {
   if (!topology.evpn) topology.evpn = {};
-  const evpn = topology.evpn as JsonObject;
-  if (!Array.isArray(evpn.session) || !evpn.session.length) evpn.session = ["ibgp"];
-  if (evpn.transport === undefined) evpn.transport = "vxlan";
 
   // EVPN forces VXLAN control-plane flooding
   if (!topology.vxlan) topology.vxlan = {};
@@ -67,9 +70,17 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
 
   const topoEvpn = (topology.evpn as JsonObject) ?? {};
   const ne = ((node.evpn as JsonObject) ?? {}) as JsonObject;
-  if (ne.transport === undefined) ne.transport = topoEvpn.transport ?? "vxlan";
+  if (ne.transport === undefined) {
+    ne.transport =
+      topoEvpn.transport ?? evpnDefaults(topology).transport ?? "vxlan";
+  }
   if (!Array.isArray(ne.session) || !ne.session.length) {
-    ne.session = Array.isArray(topoEvpn.session) ? [...topoEvpn.session] : ["ibgp"];
+    const defSession = evpnDefaults(topology).session;
+    ne.session = Array.isArray(topoEvpn.session)
+      ? [...topoEvpn.session]
+      : Array.isArray(defSession)
+        ? [...defSession]
+        : ["ibgp"];
   }
 
   const vlans = vlanDict(topology);
@@ -128,8 +139,6 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
 
 const _hooks: ModuleHooks = {
   name,
-  transform_after,
-  requires,
   module_init,
   module_pre_transform,
   node_post_transform,

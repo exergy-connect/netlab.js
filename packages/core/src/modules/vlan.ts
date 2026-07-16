@@ -2,8 +2,6 @@ import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Topology, TransformContext } from "../types.js";
 
 export const name = "vlan";
-export const transform_after: string[] = [];
-export const requires: string[] = [];
 
 export function module_pre_transform(topology: Topology, _ctx: TransformContext): void {
   const vlans = topology.vlans;
@@ -31,8 +29,6 @@ export function link_pre_transform(link: JsonObject, topology: Topology, _ctx: T
 
 const _hooks: ModuleHooks = {
   name,
-  transform_after,
-  requires,
   module_pre_transform,
   link_pre_transform,
 };

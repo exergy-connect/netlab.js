@@ -2,26 +2,22 @@ import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 
 export const name = "vxlan";
-export const transform_after = ["vlan", "vrf"];
-export const requires = ["vlan"];
-
-const DEFAULT_START_VNI = 100000;
 
 function vlanDict(topology: Topology): Record<string, JsonObject> {
   return (topology.vlans as Record<string, JsonObject> | undefined) ?? {};
 }
 
+function vxlanDefaults(topology: Topology): JsonObject {
+  const d = (topology.defaults as JsonObject | undefined)?.vxlan;
+  return d && typeof d === "object" && !Array.isArray(d) ? (d as JsonObject) : {};
+}
+
 function startVni(topology: Topology): number {
-  const defVxlan = (topology.defaults as JsonObject | undefined)?.vxlan;
-  const fromDefaults = Number(
-    defVxlan && typeof defVxlan === "object" && !Array.isArray(defVxlan)
-      ? (defVxlan as JsonObject).start_vni
-      : undefined,
-  );
+  // start_vni is no_propagate — prefer topology override, else defaults
   const fromMod = Number((topology.vxlan as JsonObject | undefined)?.start_vni);
   if (Number.isFinite(fromMod) && fromMod > 0) return fromMod;
-  if (Number.isFinite(fromDefaults) && fromDefaults > 0) return fromDefaults;
-  return DEFAULT_START_VNI;
+  const fromDefaults = Number(vxlanDefaults(topology).start_vni);
+  return Number.isFinite(fromDefaults) && fromDefaults > 0 ? fromDefaults : 100000;
 }
 
 function vlanNamesForVxlan(topology: Topology, node?: Node): string[] {
@@ -32,10 +28,6 @@ function vlanNamesForVxlan(topology: Topology, node?: Node): string[] {
 
 export function module_init(topology: Topology, _ctx: TransformContext): void {
   if (!topology.vxlan) topology.vxlan = {};
-  const vxlan = topology.vxlan as JsonObject;
-  if (vxlan.domain === undefined) vxlan.domain = "global";
-  if (vxlan.flooding === undefined) vxlan.flooding = "static";
-  if (vxlan.use_v6_vtep === undefined) vxlan.use_v6_vtep = false;
 }
 
 export function module_pre_transform(topology: Topology, _ctx: TransformContext): void {
@@ -122,7 +114,9 @@ export function module_post_transform(topology: Topology, ctx: TransformContext)
     }
     if (Object.keys(nodeVlans).length) node.vlans = nodeVlans;
 
-    const useV6 = Boolean(topoVxlan.use_v6_vtep ?? nv.use_v6_vtep);
+    const useV6 = Boolean(
+      topoVxlan.use_v6_vtep ?? nv.use_v6_vtep ?? vxlanDefaults(topology).use_v6_vtep,
+    );
     const af: "ipv4" | "ipv6" = useV6 ? "ipv6" : "ipv4";
     const vtep = loopbackAddress(node, af);
     if (!vtep) {
@@ -170,8 +164,6 @@ export function module_post_transform(topology: Topology, ctx: TransformContext)
 
 const _hooks: ModuleHooks = {
   name,
-  transform_after,
-  requires,
   module_init,
   module_pre_transform,
   module_post_transform,

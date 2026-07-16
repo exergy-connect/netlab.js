@@ -1,5 +1,13 @@
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 import { deepMerge } from "../data/merge.js";
+import {
+  getModuleDef,
+  moduleNodeCopy,
+  moduleRequires,
+  moduleTransformAfter,
+  stripModuleMeta,
+  type ModuleDef,
+} from "./defs.js";
 import * as vlanMod from "./vlan.js";
 import * as vrfMod from "./vrf.js";
 import * as vxlanMod from "./vxlan.js";
@@ -23,8 +31,6 @@ export type ModuleHooks = {
 
 function asHooks(m: {
   name: string;
-  requires?: string[];
-  transform_after?: string[];
   module_init?: ModuleHooks["module_init"];
   module_pre_transform?: ModuleHooks["module_pre_transform"];
   node_pre_transform?: ModuleHooks["node_pre_transform"];
@@ -33,7 +39,12 @@ function asHooks(m: {
   link_pre_transform?: ModuleHooks["link_pre_transform"];
   link_post_transform?: ModuleHooks["link_post_transform"];
 }): ModuleHooks {
-  return m;
+  const name = m.name;
+  return {
+    ...m,
+    requires: moduleRequires(name),
+    transform_after: moduleTransformAfter(name),
+  };
 }
 
 const MODULES: ModuleHooks[] = [
@@ -61,7 +72,9 @@ export function sortModules(names: string[]): string[] {
     if (visiting.has(n)) return;
     visiting.add(n);
     const mod = byName.get(n);
-    for (const dep of [...(mod?.requires ?? []), ...(mod?.transform_after ?? [])]) {
+    const requires = mod?.requires ?? moduleRequires(n);
+    const after = mod?.transform_after ?? moduleTransformAfter(n);
+    for (const dep of [...requires, ...after]) {
       if (names.includes(dep)) visit(dep);
     }
     visiting.delete(n);
@@ -81,23 +94,15 @@ export function collectTopologyModules(topology: Topology): string[] {
   return sortModules([...set]);
 }
 
-/** Keys kept in defaults only (Netlab module `no_propagate` subset). */
-const NO_PROPAGATE: Record<string, string[]> = {
-  bgp: ["ebgp_role", "advertise_roles", "rr_list", "as_list", "confederation"],
-  vxlan: ["start_vni"],
-  evpn: ["start_transit_vni"],
-};
-
 export function mergeModuleParams(topology: Topology): void {
   const defaults = (topology.defaults ?? {}) as JsonObject;
   const implemented = new Set(MODULES.map((m) => m.name));
   for (const m of collectTopologyModules(topology)) {
     // Do not materialize unknown modules as empty node containers
     if (!implemented.has(m)) continue;
-    const modDefault = (defaults[m] as JsonObject) ?? {};
+    const modDefault = (defaults[m] as JsonObject) ?? getModuleDef(m) ?? {};
     const topoMod = (topology[m] as JsonObject) ?? {};
-    const mergedTopo = deepMerge(modDefault, topoMod);
-    for (const key of NO_PROPAGATE[m] ?? []) delete mergedTopo[key];
+    const mergedTopo = deepMerge(stripModuleMeta(modDefault as ModuleDef), topoMod);
     topology[m] = mergedTopo;
     for (const node of Object.values(topology.nodes ?? {})) {
       if (!(node.module ?? []).includes(m)) continue;
@@ -138,13 +143,10 @@ export function runModuleHook(
 }
 
 export function copyNodeModuleAttrsToInterfaces(topology: Topology): void {
-  const copyMap: Record<string, string[]> = {
-    ospf: ["area", "passive", "network_type", "cost"],
-    isis: ["network_type", "metric", "passive"],
-  };
   for (const node of Object.values(topology.nodes ?? {})) {
-    for (const [mod, attrs] of Object.entries(copyMap)) {
-      if (!(node.module ?? []).includes(mod)) continue;
+    for (const mod of node.module ?? []) {
+      const attrs = moduleNodeCopy(mod);
+      if (!attrs.length) continue;
       const src = (node[mod] as JsonObject) ?? {};
       for (const intf of node.interfaces ?? []) {
         const dst = ((intf[mod] as JsonObject) ?? {}) as JsonObject;

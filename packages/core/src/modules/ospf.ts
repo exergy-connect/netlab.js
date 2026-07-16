@@ -2,11 +2,9 @@ import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 
 export const name = "ospf";
-export const transform_after = ["vlan", "vrf"];
-export const requires: string[] = [];
 
 export function module_init(topology: Topology, _ctx: TransformContext): void {
-  if (!topology.ospf) topology.ospf = { area: "0.0.0.0" };
+  if (!topology.ospf) topology.ospf = {};
 }
 
 export function node_post_transform(node: Node, topology: Topology, _ctx: TransformContext): void {
@@ -59,8 +57,6 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
 
 const hooks: ModuleHooks = {
   name,
-  transform_after,
-  requires,
   module_init,
   node_post_transform,
 };

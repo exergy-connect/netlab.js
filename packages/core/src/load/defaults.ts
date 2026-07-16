@@ -1,6 +1,7 @@
 import type { JsonObject } from "../types.js";
+import { moduleDefaultsForSystem } from "../modules/defs.js";
 
-/** Built-in system defaults (subset of Netlab topology-defaults). */
+/** Built-in system defaults (subset of Netlab topology-defaults + module YAML). */
 export function systemDefaults(): JsonObject {
   return {
     device: "frr",
@@ -14,32 +15,6 @@ export function systemDefaults(): JsonObject {
       vrf_loopback: { ipv4: "10.2.0.0/24", prefix: 32 },
       l2only: {},
     },
-    ospf: {
-      area: "0.0.0.0",
-    },
-    bgp: {
-      advertise_roles: ["stub"],
-      advertise_loopback: true,
-      community: {
-        ibgp: ["standard", "extended"],
-        ebgp: ["standard"],
-      },
-      ebgp_role: "external",
-      next_hop_self: true,
-    },
-    isis: {
-      type: "level-2",
-    },
-    vxlan: {
-      domain: "global",
-      flooding: "static",
-      start_vni: 100000,
-      use_v6_vtep: false,
-    },
-    evpn: {
-      session: ["ibgp"],
-      transport: "vxlan",
-      start_transit_vni: 200000,
-    },
+    ...moduleDefaultsForSystem(),
   };
 }

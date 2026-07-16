@@ -58,7 +58,8 @@ export function allocateLinkPrefix(topology: Topology, link: Link): void {
   if (typeof existing.ipv4 === "string" || typeof existing.ipv6 === "string") {
     return;
   }
-  if (link.prefix === false) {
+  // Netlab allows prefix: false to skip allocation
+  if ((link as JsonObject).prefix === false) {
     link.prefix = {};
     return;
   }

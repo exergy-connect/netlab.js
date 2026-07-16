@@ -19,6 +19,8 @@ npm test
 npm run viewer   # apps/lab-viewer
 ```
 
+`npm install` configures git hooks via `core.hooksPath=.githooks`. The `pre-push` hook runs `npm run build` and blocks the push if the build fails.
+
 ## Goals
 
 - Represent the Netlab data model in YANG

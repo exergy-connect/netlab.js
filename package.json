@@ -14,7 +14,9 @@
     "test": "npm run test -w @exergy-connect/netlab",
     "test:compat": "npm run test:compat -w @exergy-connect/netlab",
     "viewer": "npm run dev -w @exergy-connect/netlab-lab-viewer",
-    "gen:types": "node tools/gen-types.mjs"
+    "gen:types": "node tools/gen-types.mjs",
+    "embed:data": "node tools/embed-data.mjs",
+    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "engines": {
     "node": ">=24"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Block push if the core package fails to build.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "pre-push: npm run build"
+npm run build

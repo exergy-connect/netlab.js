@@ -3,8 +3,6 @@ import type { JsonObject, Link, Node, Topology, TransformContext } from "../type
 import { networkFromHostCidr } from "../addressing/ipam.js";
 
 export const name = "bgp";
-export const transform_after = ["vlan", "vrf", "ospf", "isis"];
-export const requires: string[] = [];
 
 const DEFAULT_SESSIONS: Record<string, string[]> = {
   ipv4: ["ibgp", "ebgp", "localas_ibgp"],
@@ -331,8 +329,6 @@ function bgpTransformCommunityList(node: Node): void {
 
 const _hooks: ModuleHooks = {
   name,
-  transform_after,
-  requires,
   module_init,
   node_pre_transform,
   link_pre_transform,

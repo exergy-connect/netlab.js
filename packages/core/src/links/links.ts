@@ -153,11 +153,7 @@ export function transformLinks(topology: Topology): void {
     const ifaces = link.interfaces ?? [];
     (link as JsonObject).node_count = ifaces.length;
 
-    if (
-      (link.type === "lan" || link.type === "stub") &&
-      !link.bridge &&
-      link.type !== "loopback"
-    ) {
+    if ((link.type === "lan" || link.type === "stub") && !link.bridge) {
       const base = String(topology.name ?? "lab").slice(0, 10);
       link.bridge = `${base}_${link.linkindex ?? 1}`;
     }

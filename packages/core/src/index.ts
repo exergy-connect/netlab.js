@@ -43,3 +43,4 @@ export {
 } from "./groups/groups.js";
 export { expandComponents } from "./components/components.js";
 export { listModules, collectTopologyModules, sortModules } from "./modules/registry.js";
+export { loadModuleDefs, supportedModuleNames } from "./modules/defs.js";

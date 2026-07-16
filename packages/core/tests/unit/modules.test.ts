@@ -1,12 +1,49 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { collectTopologyModules, sortModules } from "../../src/modules/registry.js";
+import {
+  loadModuleDefs,
+  moduleNoPropagate,
+  moduleNodeCopy,
+  moduleRequires,
+  moduleTransformAfter,
+} from "../../src/modules/defs.js";
+import { systemDefaults } from "../../src/load/defaults.js";
 import { loadTopologyString } from "../../src/load/load.js";
 import { transform } from "../../src/transform/orchestrator.js";
 
 describe("protocol modules", () => {
-  it("orders modules with transform_after dependencies", () => {
-    assert.deepEqual(sortModules(["bgp", "ospf", "vlan", "vrf"]), ["vlan", "vrf", "ospf", "bgp"]);
+  it("loads module YAML defs with requires/transform_after/no_propagate", () => {
+    const defs = loadModuleDefs();
+    assert.ok(defs.bgp);
+    assert.ok(defs.vxlan);
+    assert.deepEqual(moduleRequires("vxlan"), ["vlan"]);
+    assert.deepEqual(moduleRequires("evpn"), ["bgp"]);
+    assert.deepEqual(moduleTransformAfter("bgp"), ["vlan"]);
+    assert.deepEqual(moduleTransformAfter("vrf"), ["vlan", "bgp"]);
+    assert.ok(moduleNoPropagate(defs.bgp).includes("ebgp_role"));
+    assert.ok(moduleNoPropagate(defs.vxlan).includes("start_vni"));
+    assert.deepEqual(moduleNodeCopy("ospf"), [
+      "area",
+      "passive",
+      "digest",
+      "password",
+      "priority",
+      "timers",
+    ]);
+    const defaults = systemDefaults();
+    assert.equal((defaults.ospf as { area?: string }).area, "0.0.0.0");
+    assert.equal((defaults.vxlan as { start_vni?: number }).start_vni, 100000);
+  });
+
+  it("orders modules with transform_after dependencies from YAML", () => {
+    // Netlab: bgp after vlan; vrf after vlan+bgp; ospf after vlan+vrf
+    assert.deepEqual(sortModules(["bgp", "ospf", "vlan", "vrf"]), [
+      "vlan",
+      "bgp",
+      "vrf",
+      "ospf",
+    ]);
     const ordered = sortModules(["evpn", "bgp", "vxlan", "vlan", "ospf"]);
     assert.ok(ordered.indexOf("vlan") < ordered.indexOf("vxlan"));
     assert.ok(ordered.indexOf("vxlan") < ordered.indexOf("evpn"));
