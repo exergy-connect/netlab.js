@@ -1,5 +1,6 @@
 import ipaddr from "ipaddr.js";
 import type { JsonObject, Link, Topology } from "../types.js";
+import { deepMerge } from "../data/merge.js";
 
 type Af = "ipv4" | "ipv6";
 
@@ -19,18 +20,67 @@ export function resetPoolCursors(): void {
   for (const k of Object.keys(poolCursor)) delete poolCursor[k];
 }
 
+/**
+ * Port of netsim.augment.addressing.setup_pools:
+ * merge legacy lan/loopback/p2p defaults, then fill missing IPv4 prefix lengths.
+ */
+export function setupPools(
+  addrPools: JsonObject,
+  defaults: JsonObject = {},
+): Record<string, JsonObject> {
+  const legacy: JsonObject = {
+    lan: {
+      ipv4: typeof defaults.lan === "string" ? defaults.lan : "10.0.0.0/16",
+      prefix: typeof defaults.lan_subnet === "number" ? defaults.lan_subnet : 24,
+    },
+    loopback: {
+      ipv4: "10.0.0.0/24",
+      prefix: 32,
+    },
+    p2p: {
+      ipv4: typeof defaults.p2p === "string" ? defaults.p2p : "10.2.0.0/16",
+      prefix: typeof defaults.p2p_subnet === "number" ? defaults.p2p_subnet : 30,
+    },
+  };
+
+  const merged = deepMerge(legacy, addrPools);
+  const out: Record<string, JsonObject> = {};
+
+  for (const [name, raw] of Object.entries(merged)) {
+    if (raw === null || raw === undefined) {
+      out[name] = {};
+      continue;
+    }
+    if (typeof raw !== "object" || Array.isArray(raw)) {
+      out[name] = { ipv4: raw as never };
+      continue;
+    }
+    const pool = { ...(raw as JsonObject) };
+    if (typeof pool.ipv4 === "string" && typeof pool.prefix !== "number") {
+      pool.prefix = name.includes("loopback") ? 32 : 24;
+    }
+    // Netlab validate_pools: mgmt defaults to /24
+    if (name === "mgmt" && typeof pool.prefix !== "number") {
+      pool.prefix = 24;
+    }
+    out[name] = pool;
+  }
+  return out;
+}
+
 export function setupAddressing(topology: Topology): void {
   resetPoolCursors();
-  const addressing = (topology.addressing ?? {}) as JsonObject;
+  const addressing = setupPools(
+    (topology.addressing ?? {}) as JsonObject,
+    (topology.defaults ?? {}) as JsonObject,
+  );
   topology.addressing = addressing;
   topology.pools = { ...addressing };
 
-  for (const [name, raw] of Object.entries(addressing)) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-    const pool = raw as JsonObject;
+  for (const [name, pool] of Object.entries(addressing)) {
     const cur: PoolCursor = {};
     // Match Netlab create_pool_generators: skip first subnet for loopback and /32,/127+
-    const p4 = typeof pool.prefix === "number" ? pool.prefix : defaultIpv4PrefixLen(name);
+    const p4 = typeof pool.prefix === "number" ? pool.prefix : 24;
     const p6 = typeof pool.prefix6 === "number" ? pool.prefix6 : 64;
     if (typeof pool.ipv4 === "string") {
       cur.skipFirst4 = p4 === 32 || name === "loopback" || name.includes("loopback");
@@ -135,7 +185,7 @@ function allocateFromPools(
   const out: JsonObject = {};
 
   if (typeof pool.ipv4 === "string") {
-    const plen = typeof pool.prefix === "number" ? pool.prefix : defaultIpv4PrefixLen(poolName);
+    const plen = typeof pool.prefix === "number" ? pool.prefix : 24;
     out.ipv4 = nth !== undefined ? nthSubnetV4(pool.ipv4, plen, nth, cur) : nextSubnetV4(pool.ipv4, plen, cur);
   }
   if (typeof pool.ipv6 === "string") {
@@ -245,12 +295,6 @@ function hostFits(cidr: string, host: number): boolean {
   } catch {
     return false;
   }
-}
-
-function defaultIpv4PrefixLen(poolName: string): number {
-  if (poolName.includes("loopback") || poolName === "router_id") return 32;
-  if (poolName === "p2p" || poolName === "external") return 30;
-  return 24;
 }
 
 function parseV4(cidr: string): [number, number] {

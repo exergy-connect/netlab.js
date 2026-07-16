@@ -27,6 +27,11 @@ export { cleanupTopology, exportTopology } from "./transform/cleanup.js";
 
 export { createNodeDict, transformNodes, formatIfName } from "./nodes/nodes.js";
 export { canonicalizeLinks, transformLinks } from "./links/links.js";
-export { setupAddressing, allocateLinkPrefix, resetPoolCursors } from "./addressing/ipam.js";
+export {
+  setupAddressing,
+  setupPools,
+  allocateLinkPrefix,
+  resetPoolCursors,
+} from "./addressing/ipam.js";
 export { loadDevices, getDevice } from "./devices/registry.js";
 export { initGroups, autoCreateGroupMembers, copyGroupData } from "./groups/groups.js";

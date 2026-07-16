@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Embed data/devices/*.yml, data/daemons/*.yml, and data/modules/*.yml
+ * Embed data/devices, data/daemons, data/modules, and data/defaults YAML
  * as TypeScript string maps.
  *
  * Usage: node tools/embed-data.mjs
@@ -47,4 +47,8 @@ writeTs(join(root, "packages/core/src/devices/embedded-yaml.ts"), [
 
 writeTs(join(root, "packages/core/src/modules/embedded-yaml.ts"), [
   mapBlock("data/modules/*.yml", "MODULE_YAML", collectYml("data/modules")),
+]);
+
+writeTs(join(root, "packages/core/src/load/embedded-yaml.ts"), [
+  mapBlock("data/defaults/*.yml", "DEFAULTS_YAML", collectYml("data/defaults")),
 ]);
