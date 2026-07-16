@@ -83,6 +83,7 @@ export function collectTopologyModules(topology: Topology): string[] {
 
 /** Keys kept in defaults only (Netlab module `no_propagate` subset). */
 const NO_PROPAGATE: Record<string, string[]> = {
+  bgp: ["ebgp_role", "advertise_roles", "rr_list", "as_list", "confederation"],
   vxlan: ["start_vni"],
   evpn: ["start_transit_vni"],
 };

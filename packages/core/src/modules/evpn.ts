@@ -107,7 +107,11 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
   // Activate EVPN AF on matching BGP neighbors
   const sessions = new Set((ne.session as string[]).map(String));
   const bgp = ((node.bgp as JsonObject) ?? {}) as JsonObject;
-  const neighbors = Array.isArray(bgp.neighbor) ? (bgp.neighbor as JsonObject[]) : [];
+  const neighbors = Array.isArray(bgp.neighbors)
+    ? (bgp.neighbors as JsonObject[])
+    : Array.isArray(bgp.neighbor)
+      ? (bgp.neighbor as JsonObject[])
+      : [];
   for (const nb of neighbors) {
     const peerName = String(nb.name ?? "");
     const peer = topology.nodes?.[peerName];
@@ -116,7 +120,8 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
     if (!sessions.has(ntype)) continue;
     if (nb.evpn === undefined) nb.evpn = "ipv4";
   }
-  bgp.neighbor = neighbors;
+  bgp.neighbors = neighbors;
+  delete bgp.neighbor;
   node.bgp = bgp;
   node.evpn = ne;
 }

@@ -4,7 +4,12 @@ import { loadDevices } from "../devices/registry.js";
 import { createNodeDict, applyNodeDeviceDefaults, transformNodes } from "../nodes/nodes.js";
 import { canonicalizeLinks, transformLinks } from "../links/links.js";
 import { setupAddressing } from "../addressing/ipam.js";
-import { initGroups, autoCreateGroupMembers, copyGroupData } from "../groups/groups.js";
+import {
+  initGroups,
+  autoCreateGroupMembers,
+  copyGroupData,
+  createBgpAutogroups,
+} from "../groups/groups.js";
 import { expandComponents } from "../components/components.js";
 import {
   checkUnknownModules,
@@ -12,6 +17,7 @@ import {
   copyNodeModuleAttrsToInterfaces,
   mergeModuleParams,
   runModuleHook,
+  sortModules,
 } from "../modules/registry.js";
 import { selectProvider, providerPreTransform, providerPostTransform } from "../provider/clab.js";
 import { processQuirks } from "../devices/quirks.js";
@@ -39,24 +45,26 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   selectProvider(topology, ctx);
 
   initGroups(topology);
-  autoCreateGroupMembers(topology);
+  // Convert list-form nodes before group auto-create (which mutates the node dict).
   topology.nodes = createNodeDict(topology.nodes, diagnostics);
+  autoCreateGroupMembers(topology);
   expandComponents(topology);
   canonicalizeLinks(topology, diagnostics);
   copyGroupData(topology);
   applyNodeDeviceDefaults(topology, diagnostics);
 
-  if (Array.isArray(topology.module)) {
+  // Propagate topology modules only when node has no explicit module list
+  // (including module: [] which must stay empty — Netlab augment_node_module).
+  if (Array.isArray(topology.module) && topology.module.length > 0) {
     for (const node of Object.values(topology.nodes)) {
-      if (node.role === "host" && !node["netlab-internal:_daemon"]) {
-        continue;
-      }
-      const set = new Set([...(node.module ?? []), ...topology.module]);
-      node.module = [...set];
+      if ("module" in node) continue;
+      if (node.role === "host" && !node["netlab-internal:_daemon"]) continue;
+      node.module = [...topology.module];
     }
   }
 
   mergeModuleParams(topology);
+  createBgpAutogroups(topology);
   checkUnknownModules(topology, diagnostics);
   runModuleHook("module_init", topology, ctx);
   setupAddressing(topology);
@@ -73,15 +81,23 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   transformLinks(topology);
   runModuleHook("link_post_transform", topology, ctx);
 
-  runModuleHook("node_post_transform", topology, ctx);
-  copyNodeModuleAttrsToInterfaces(topology);
+  // Match Netlab: module_post_transform (RR clusters, …) before node_post_transform.
+  // Copy node→interface module attrs before node_post so modules (e.g. OSPF) can
+  // refine or remove them (external links, stub passive, …).
   runModuleHook("module_post_transform", topology, ctx);
+  copyNodeModuleAttrsToInterfaces(topology);
+  runModuleHook("node_post_transform", topology, ctx);
 
   hooks.afterAddressed?.(topology, ctx);
 
   processQuirks(topology);
   providerPostTransform(topology, ctx);
   topology.module = collectTopologyModules(topology);
+  for (const node of Object.values(topology.nodes ?? {})) {
+    if (Array.isArray(node.module) && node.module.length > 0) {
+      node.module = sortModules(node.module);
+    }
+  }
 
   hooks.afterTransformed?.(topology, ctx);
 

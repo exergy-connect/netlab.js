@@ -1,5 +1,7 @@
 import type { DiagnosticCollectorLike, JsonObject, Node, Topology } from "../types.js";
+import { SUPPORTED_DEVICES } from "../types.js";
 import { getDevice } from "../devices/registry.js";
+import { allocateNthFromPool, hostInSubnet } from "../addressing/ipam.js";
 
 /** Port of netsim.augment.nodes.create_node_dict */
 export function createNodeDict(
@@ -70,18 +72,20 @@ export function assignNodeIds(topology: Topology): void {
 
 export function applyNodeDeviceDefaults(topology: Topology, diagnostics?: DiagnosticCollectorLike): void {
   const defaultDevice = String((topology.defaults as JsonObject)?.device ?? "frr");
+  const allowed = SUPPORTED_DEVICES as readonly string[];
   for (const node of Object.values(topology.nodes ?? {})) {
     if (!node.device) node.device = defaultDevice;
-    const device = node.device;
-    if (!["none", "linux", "frr", "bird"].includes(device)) {
-      diagnostics?.error({
+    let device = String(node.device);
+    if (!allowed.includes(device)) {
+      diagnostics?.warning({
         code: "VALUE",
         category: "VALUE",
         module: "nodes",
-        message: `Unsupported device '${device}' on node ${node.name} (allowed: none, linux, frr, bird)`,
+        message: `Unsupported device '${device}' on node ${node.name}; using frr (allowed: ${allowed.join(", ")})`,
         path: `nodes.${node.name}.device`,
       });
-      continue;
+      device = "frr";
+      node.device = device;
     }
     const def = getDevice(device);
     if (!node.role) node.role = String(def.role ?? "router");
@@ -95,10 +99,8 @@ export function applyNodeDeviceDefaults(topology: Topology, diagnostics?: Diagno
 export function transformNodes(topology: Topology): void {
   assignNodeIds(topology);
   const mgmtPool = ((topology.addressing as JsonObject)?.mgmt ?? {}) as JsonObject;
-  const loopPool = ((topology.addressing as JsonObject)?.loopback ?? {}) as JsonObject;
   const mgmtBase = String(mgmtPool.ipv4 ?? "192.168.121.0/24");
   const mgmtStart = Number(mgmtPool.start ?? 100);
-  const loopBase = String(loopPool.ipv4 ?? "10.0.0.0/24");
 
   for (const node of Object.values(topology.nodes ?? {})) {
     const id = node.id ?? 1;
@@ -111,17 +113,31 @@ export function transformNodes(topology: Topology): void {
 
     if (node.role === "router" || node.role === "gateway" || !node.role) {
       const loName = formatIfName(String(def.loopback_interface_name ?? "lo{ifindex}"), 0);
-      node.loopback = {
+      const prefix = allocateNthFromPool(topology, "loopback", id);
+      const loopback: JsonObject = {
         ifindex: 0,
         ifname: loName || "lo",
         type: "loopback",
         virtual_interface: true,
-        ipv4: `${nthHostAddress(loopBase, id)}/32`,
+        neighbors: [],
       };
+      if (typeof prefix.ipv4 === "string") {
+        // /32 → use prefix as address; larger → host 1
+        loopback.ipv4 = prefix.ipv4.endsWith("/32") ? prefix.ipv4 : hostInSubnet(prefix.ipv4, 1);
+      }
+      if (typeof prefix.ipv6 === "string") {
+        loopback.ipv6 = prefix.ipv6.endsWith("/128") ? prefix.ipv6 : hostInSubnet(prefix.ipv6, 1);
+      }
+      node.loopback = loopback;
     }
 
     node.af = node.af ?? {};
-    (node.af as JsonObject).ipv4 = true;
+    if (node.loopback?.ipv4 || (node.interfaces ?? []).some((i) => i.ipv4)) {
+      (node.af as JsonObject).ipv4 = true;
+    }
+    if (node.loopback?.ipv6 || (node.interfaces ?? []).some((i) => i.ipv6)) {
+      (node.af as JsonObject).ipv6 = true;
+    }
   }
 }
 

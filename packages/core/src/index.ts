@@ -35,6 +35,11 @@ export { createNodeDict, transformNodes, formatIfName } from "./nodes/nodes.js";
 export { canonicalizeLinks, transformLinks } from "./links/links.js";
 export { setupAddressing, allocateLinkPrefix, resetPoolCursors } from "./addressing/ipam.js";
 export { loadDevices, getDevice, buildModuleSupportLists } from "./devices/registry.js";
-export { initGroups, autoCreateGroupMembers, copyGroupData } from "./groups/groups.js";
+export {
+  initGroups,
+  autoCreateGroupMembers,
+  copyGroupData,
+  createBgpAutogroups,
+} from "./groups/groups.js";
 export { expandComponents } from "./components/components.js";
 export { listModules, collectTopologyModules, sortModules } from "./modules/registry.js";

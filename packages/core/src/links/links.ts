@@ -11,7 +11,11 @@ import type {
 import { INTERNAL_LINKNAME } from "../types.js";
 import { formatIfName } from "../nodes/nodes.js";
 import { getDevice } from "../devices/registry.js";
-import { allocateLinkPrefix, assignInterfaceAddresses } from "../addressing/ipam.js";
+import {
+  allocateLinkPrefix,
+  assignInterfaceAddresses,
+  getDefaultLinkType,
+} from "../addressing/ipam.js";
 
 /** Port of adjust_link_object + adjust_link_list (canonical form). */
 export function canonicalizeLinks(
@@ -34,7 +38,6 @@ export function canonicalizeLinks(
     if (link.disable === true) continue;
     link.linkindex = cnt;
     link[INTERNAL_LINKNAME] = linkname;
-    // clear bare _linkname if present
     delete link._linkname;
     out.push(link);
   }
@@ -81,7 +84,6 @@ function adjustLinkObject(
       return obj;
     }
 
-    // Dictionary without interfaces: keys that are node names become attachments
     const linkData: Link = { [INTERNAL_LINKNAME]: linkname };
     const linkIntf: LinkInterface[] = [];
     for (const [k, v] of Object.entries(obj)) {
@@ -147,25 +149,43 @@ function adjustInterfaceList(
 export function transformLinks(topology: Topology): void {
   const nodes = topology.nodes ?? {};
   for (const link of topology.links ?? []) {
+    setLinkTypeRole(link, nodes);
     const ifaces = link.interfaces ?? [];
-    const nCount = ifaces.length;
-    if (!link.type) {
-      link.type = nCount === 2 ? "p2p" : "lan";
-    }
-    if (link.type === "lan" && !link.bridge) {
-      link.bridge = `${topology.name ?? "lab"}_${link.linkindex ?? 1}`;
+    (link as JsonObject).node_count = ifaces.length;
+
+    if (
+      (link.type === "lan" || link.type === "stub") &&
+      !link.bridge &&
+      link.type !== "loopback"
+    ) {
+      const base = String(topology.name ?? "lab").slice(0, 10);
+      link.bridge = `${base}_${link.linkindex ?? 1}`;
     }
 
     allocateLinkPrefix(topology, link);
     assignInterfaceAddresses(topology, link);
 
-    // Create node interfaces + neighbors
     for (const lif of ifaces) {
       const node = nodes[lif.node!];
       if (!node) continue;
       const def = getDevice(String(node.device ?? "frr"));
-      const ifindex = nextIfIndex(node);
-      const ifname = formatIfName(String(def.interface_name ?? "eth{ifindex}"), ifindex);
+      const isVirtual = link.type === "loopback";
+      let ifindex: number;
+      let ifname: string;
+      if (isVirtual) {
+        ifindex = nextVirtualIfIndex(node, "loopback");
+        const reduced = ifindex - 10000;
+        const tmpl = String(
+          (def as JsonObject).loopback_interface_name ??
+            def.interface_name ??
+            "Loopback{ifindex}",
+        );
+        ifname = formatIfName(tmpl, reduced);
+        lif.virtual_interface = true;
+      } else {
+        ifindex = nextIfIndex(node);
+        ifname = formatIfName(String(def.interface_name ?? "eth{ifindex}"), ifindex);
+      }
       lif.ifindex = ifindex;
       lif.ifname = ifname;
 
@@ -182,27 +202,77 @@ export function transformLinks(topology: Topology): void {
       const nif: Interface = {
         ifindex,
         ifname,
-        type: link.type ?? "p2p",
+        type: link.type ?? getDefaultLinkType(link),
         neighbors,
       };
+      if (isVirtual) nif.virtual_interface = true;
       if (lif.ipv4 !== undefined) nif.ipv4 = lif.ipv4;
       if (lif.ipv6 !== undefined) nif.ipv6 = lif.ipv6;
       if (link.linkindex !== undefined) nif.linkindex = link.linkindex;
+      if (link.role) nif.role = link.role;
+      if (link.bridge) nif.bridge = link.bridge;
 
-      // Copy module attrs from link
       if (link.ospf) nif.ospf = { ...(link.ospf as JsonObject) };
       if (link.vlan) nif.vlan = { ...(link.vlan as JsonObject) };
       if ((link as JsonObject).isis) nif.isis = { ...((link as JsonObject).isis as JsonObject) };
+      if (lif.bgp !== undefined) nif.bgp = structuredClone(lif.bgp) as JsonObject;
+      else if (link.bgp !== undefined) nif.bgp = structuredClone(link.bgp) as JsonObject;
 
       node.interfaces = node.interfaces ?? [];
       node.interfaces.push(nif);
     }
   }
+
+  // Refresh node AF flags after interface addressing
+  for (const node of Object.values(nodes)) {
+    node.af = node.af ?? {};
+    if (node.loopback?.ipv4 || (node.interfaces ?? []).some((i) => typeof i.ipv4 === "string")) {
+      (node.af as JsonObject).ipv4 = true;
+    }
+    if (node.loopback?.ipv6 || (node.interfaces ?? []).some((i) => typeof i.ipv6 === "string")) {
+      (node.af as JsonObject).ipv6 = true;
+    }
+  }
+}
+
+/** Port of set_link_type_role (subset). */
+function setLinkTypeRole(link: Link, nodes: Record<string, Node>): void {
+  const ifaces = link.interfaces ?? [];
+  const nCount = ifaces.length;
+  let routerCount = 0;
+  for (const iface of ifaces) {
+    const node = nodes[iface.node!];
+    if (!node) continue;
+    if (node.role !== "host") routerCount++;
+  }
+
+  if (
+    !("role" in link) &&
+    routerCount <= 1 &&
+    link.type !== "loopback" &&
+    !(link as JsonObject).vlan_name
+  ) {
+    link.role = "stub";
+  }
+
+  if (!link.type) {
+    link.type = getDefaultLinkType(link);
+  }
+
+  void nCount;
 }
 
 function nextIfIndex(node: Node): number {
   const used = (node.interfaces ?? []).map((i) => i.ifindex ?? 0);
   let n = 1;
+  while (used.includes(n)) n++;
+  return n;
+}
+
+function nextVirtualIfIndex(node: Node, _kind: "loopback"): number {
+  // loopback virtual interfaces start at 10001 (Netlab VIRTUAL_INTERFACE_TYPES)
+  const used = (node.interfaces ?? []).map((i) => i.ifindex ?? 0);
+  let n = 10001;
   while (used.includes(n)) n++;
   return n;
 }

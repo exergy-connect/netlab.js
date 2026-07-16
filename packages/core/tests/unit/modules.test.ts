@@ -34,7 +34,7 @@ links:
     const { topology } = transform(topo, { validate: false });
     assert.ok((topology.nodes!.r1!.ospf as { router_id?: string }).router_id);
     assert.ok((topology.nodes!.r1!.isis as { net?: string }).net);
-    assert.ok(Array.isArray((topology.nodes!.r1!.bgp as { neighbor?: unknown[] }).neighbor));
+    assert.ok(Array.isArray((topology.nodes!.r1!.bgp as { neighbors?: unknown[] }).neighbors));
     assert.ok(collectTopologyModules(topology).includes("ospf"));
   });
 
@@ -66,8 +66,8 @@ links:
     assert.equal((n1.vxlan as { flooding?: string }).flooding, "evpn");
     assert.ok((n1.vxlan as { vtep?: string }).vtep);
     assert.deepEqual((n1.evpn as { vlans?: string[] }).vlans?.sort(), ["blue", "red"]);
-    const neighbors = (n1.bgp as { neighbor?: { name?: string; evpn?: string; type?: string }[] })
-      .neighbor!;
+    const neighbors = (n1.bgp as { neighbors?: { name?: string; evpn?: string; type?: string }[] })
+      .neighbors!;
     assert.ok(neighbors.some((nb) => nb.type === "ibgp" && nb.evpn === "ipv4"));
     const nodeRed = (n1.vlans as Record<string, { evpn?: { rd?: string } }>).red!;
     assert.ok(nodeRed.evpn?.rd?.includes(":"));

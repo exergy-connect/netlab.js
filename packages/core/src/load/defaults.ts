@@ -8,8 +8,8 @@ export function systemDefaults(): JsonObject {
     addressing: {
       loopback: { ipv4: "10.0.0.0/24" },
       router_id: { ipv4: "10.0.0.0/24", prefix: 32 },
-      lan: { ipv4: "172.16.0.0/16" },
-      p2p: { ipv4: "10.1.0.0/16" },
+      lan: { ipv4: "172.16.0.0/16", prefix: 24 },
+      p2p: { ipv4: "10.1.0.0/16", prefix: 30 },
       mgmt: { ipv4: "192.168.121.0/24", start: 100, mac: "CA-FE-00-00-00-00" },
       vrf_loopback: { ipv4: "10.2.0.0/24", prefix: 32 },
       l2only: {},
@@ -17,7 +17,16 @@ export function systemDefaults(): JsonObject {
     ospf: {
       area: "0.0.0.0",
     },
-    bgp: {},
+    bgp: {
+      advertise_roles: ["stub"],
+      advertise_loopback: true,
+      community: {
+        ibgp: ["standard", "extended"],
+        ebgp: ["standard"],
+      },
+      ebgp_role: "external",
+      next_hop_self: true,
+    },
     isis: {
       type: "level-2",
     },

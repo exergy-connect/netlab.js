@@ -36,4 +36,25 @@ links:
       console.log(diagnostics.list());
     }
   });
+
+  it("keeps list-form nodes and maps unsupported devices to frr with a warning", () => {
+    const topo = loadTopologyString(`
+defaults:
+  device: iosv
+provider: clab
+nodes:
+  - name: rr1
+  - pe1
+links:
+  - rr1-pe1
+`);
+    const { topology, diagnostics } = transform(topo, { validate: false });
+    assert.deepEqual(Object.keys(topology.nodes ?? {}).sort(), ["pe1", "rr1"]);
+    assert.equal(topology.nodes!.rr1!.device, "frr");
+    assert.equal(topology.nodes!.pe1!.device, "frr");
+    assert.ok((topology.links?.[0]?.interfaces ?? []).length >= 2);
+    const warnings = diagnostics.list().filter((d) => d.severity === "warning");
+    assert.ok(warnings.some((d) => d.message.includes("Unsupported device 'iosv'")));
+    assert.equal(diagnostics.hasErrors(), false);
+  });
 });

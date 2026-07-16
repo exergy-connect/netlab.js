@@ -30,8 +30,8 @@ describe("groups and components", () => {
       },
     };
     initGroups(topology);
-    autoCreateGroupMembers(topology);
     topology.nodes = createNodeDict(topology.nodes);
+    autoCreateGroupMembers(topology);
     copyGroupData(topology);
     assert.ok(topology.nodes!.h1);
     assert.ok(topology.nodes!.h2);
@@ -40,6 +40,21 @@ describe("groups and components", () => {
     assert.equal(topology.nodes!.h1!.device, "linux");
     assert.equal(topology.nodes!.s1!.device, "frr");
     assert.deepEqual(topology.nodes!.s1!.module, ["ospf"]);
+  });
+
+  it("preserves list-form nodes when auto-creating group members", () => {
+    const topology: Topology = {
+      nodes: [{ name: "rr1" }, "pe1"] as unknown as Topology["nodes"],
+      groups: {
+        _auto_create: true,
+        extras: { members: ["x1"] },
+      },
+    };
+    initGroups(topology);
+    autoCreateGroupMembers(topology);
+    assert.ok(topology.nodes!.rr1);
+    assert.ok(topology.nodes!.pe1);
+    assert.ok(topology.nodes!.x1);
   });
 
   it("auto-creates EVPN/VXLAN group members without unknown-module errors", () => {

@@ -1,5 +1,6 @@
 import type { Group, JsonObject, Node, Topology } from "../types.js";
 import { deepMerge } from "../data/merge.js";
+import { createNodeDict } from "../nodes/nodes.js";
 
 function truthyFlag(v: unknown): boolean {
   return v === true || v === "true" || v === "True";
@@ -33,8 +34,11 @@ export function autoCreateGroupMembers(topology: Topology): void {
   const defaultCreate =
     truthyFlag(groups._auto_create) || truthyFlag(defaultsGroups._auto_create);
 
-  if (!topology.nodes || typeof topology.nodes !== "object" || Array.isArray(topology.nodes)) {
+  // Preserve list-form nodes; never wipe them to {}.
+  if (!topology.nodes || typeof topology.nodes !== "object") {
     topology.nodes = {};
+  } else if (Array.isArray(topology.nodes)) {
+    topology.nodes = createNodeDict(topology.nodes);
   }
   const nodes = topology.nodes as Record<string, Node>;
 
@@ -84,5 +88,23 @@ export function copyGroupData(topology: Topology): void {
         Object.assign(node, merged);
       }
     }
+  }
+}
+
+/** Port of netsim.augment.groups.create_bgp_autogroups — groups.asNNNN.members. */
+export function createBgpAutogroups(topology: Topology): void {
+  if (!topology.groups) topology.groups = {};
+  const groups = topology.groups;
+  const globalAs = Number((topology.bgp as JsonObject | undefined)?.as);
+
+  for (const [name, node] of Object.entries(topology.nodes ?? {})) {
+    if (!(node.module ?? []).includes("bgp")) continue;
+    const nodeAs = Number((node.bgp as JsonObject | undefined)?.as ?? globalAs);
+    if (!Number.isFinite(nodeAs) || nodeAs <= 0) continue;
+    const gname = `as${nodeAs}`;
+    if (!groups[gname]) groups[gname] = { members: [] };
+    const g = groups[gname]!;
+    if (!Array.isArray(g.members)) g.members = [];
+    if (!g.members.includes(name)) g.members.push(name);
   }
 }
