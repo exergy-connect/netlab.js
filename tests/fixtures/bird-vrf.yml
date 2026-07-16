@@ -1,0 +1,17 @@
+defaults:
+  device: bird
+provider: clab
+name: bird-vrf
+module: [vrf, ospf]
+vrfs:
+  red:
+  blue:
+nodes:
+  r1:
+  r2:
+links:
+  - interfaces:
+      - node: r1
+        vrf: red
+      - node: r2
+        vrf: red

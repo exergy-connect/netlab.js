@@ -1,0 +1,58 @@
+module netlab-vrf {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:vrf";
+  prefix vrf;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "VRF module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    list vrfs {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf rd {
+        type string;
+      }
+      leaf-list import {
+        type string;
+      }
+      leaf-list export {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    list vrfs {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf rd {
+        type string;
+      }
+      leaf-list import {
+        type string;
+      }
+      leaf-list export {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    leaf vrf {
+      type string;
+    }
+  }
+}

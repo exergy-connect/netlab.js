@@ -1,0 +1,55 @@
+module netlab-isis {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:isis";
+  prefix isis;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "IS-IS module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    container isis {
+      leaf area {
+        type string;
+      }
+      leaf type {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    container isis {
+      leaf area {
+        type string;
+      }
+      leaf net {
+        type string;
+      }
+      leaf type {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    container isis {
+      leaf network_type {
+        type string;
+      }
+      leaf metric {
+        type uint32;
+      }
+      leaf passive {
+        type boolean;
+      }
+    }
+  }
+}

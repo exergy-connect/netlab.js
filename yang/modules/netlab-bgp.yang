@@ -1,0 +1,53 @@
+module netlab-bgp {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:bgp";
+  prefix bgp;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "BGP module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    container bgp {
+      leaf as {
+        type uint32;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    container bgp {
+      leaf as {
+        type uint32;
+      }
+      leaf router_id {
+        type string;
+      }
+      list neighbor {
+        key "name";
+        leaf name {
+          type string;
+        }
+        leaf as {
+          type uint32;
+        }
+        leaf type {
+          type string;
+        }
+        leaf ipv4 {
+          type string;
+        }
+        leaf ipv6 {
+          type string;
+        }
+      }
+    }
+  }
+}

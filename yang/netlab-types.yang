@@ -1,0 +1,81 @@
+module netlab-types {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:types";
+  prefix ntype;
+
+  organization "Exergy Connect";
+  description "Shared typedefs and identities for the Netlab data model.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  typedef stage-name {
+    type enumeration {
+      enum user_input;
+      enum normalized;
+      enum addressed;
+      enum transformed;
+    }
+    description "Pipeline validation stage.";
+  }
+
+  typedef device-name {
+    type enumeration {
+      enum none;
+      enum linux;
+      enum frr;
+      enum bird;
+    }
+    description "Supported device identities.";
+  }
+
+  typedef provider-name {
+    type enumeration {
+      enum clab;
+    }
+    description "Supported virtualization provider (clab only).";
+  }
+
+  typedef node-role {
+    type enumeration {
+      enum router;
+      enum host;
+      enum bridge;
+      enum gateway;
+    }
+  }
+
+  typedef link-type {
+    type enumeration {
+      enum p2p;
+      enum lan;
+      enum stub;
+      enum loopback;
+      enum lag;
+      enum tunnel;
+    }
+  }
+
+  typedef ipv4-prefix {
+    type string {
+      pattern '(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}'
+           +  '([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])'
+           +  '/(([0-9])|([1-2][0-9])|(3[0-2]))'
+           +  '|true|false';
+    }
+    description "IPv4 prefix, address/prefix, or boolean unnumbered marker.";
+  }
+
+  typedef ipv6-prefix {
+    type string;
+    description "IPv6 prefix or boolean unnumbered marker (validated loosely).";
+  }
+
+  typedef node-id-ref {
+    type string {
+      length "1..32";
+      pattern '[A-Za-z]([-_.A-Za-z0-9]*[A-Za-z0-9])?';
+    }
+  }
+}

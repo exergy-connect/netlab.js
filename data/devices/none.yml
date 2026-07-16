@@ -1,0 +1,203 @@
+description: Dummy device used to test topology transformation
+_meta_device: true
+interface_name: eth{ifindex}
+lag_interface_name: bond{lag.ifindex}
+loopback_interface_name: Loopback{ifindex}
+tunnel_interface_name: Tunnel{ifindex}
+libvirt:
+  image: none
+clab:
+  image: none
+external:
+  image: none
+group_vars:
+  ansible_connection: paramiko_ssh
+  ansible_network_os: none
+features:
+  bfd: true
+  bgp:
+    activate_af: true
+    advertise: true
+    aggregate: true
+    local_as: true
+    vrf_local_as: true
+    local_as_ibgp: true
+    role: true
+    ipv6_lla: true
+    rfc8950: true
+    bandwidth: true
+    multihop.vrf: true
+    allowas_in: true
+    as_override: true
+    bfd: true
+    default_originate: true
+    description: true
+    gr: true
+    gtsm: true
+    passive: true
+    password: true
+    remove_private_as: true
+    rs_client: true
+    rs: true
+    tcp_ao:
+    - libvirt
+    - external
+    timers: true
+    import:
+    - ospf
+    - isis
+    - ripv2
+    - connected
+    - static
+    - vrf
+    confederation: true
+  dhcp:
+    client:
+      ipv4: true
+      ipv6: true
+      routing: true
+    relay: true
+    vrf: true
+    server: true
+  eigrp: true
+  evpn:
+    irb: true
+    asymmetrical_irb: true
+    bundle:
+    - vlan_aware
+    multi_rt: true
+    ipv6: true
+    transport:
+    - vxlan
+    - mpls
+    - sr
+  gateway:
+    protocol:
+    - anycast
+    - vrrp
+  initial:
+    ipv4:
+      unnumbered: true
+    ipv6:
+      lla: true
+    mgmt_vrf: true
+    ra: true
+    roles:
+    - router
+    - bridge
+    - host
+    collect: true
+    reload: true
+  isis:
+    import:
+    - bgp
+    - ospf
+    - ripv2
+    - connected
+    - vrf
+    vrf: true
+    unnumbered:
+      ipv4: true
+      ipv6: true
+      network: true
+  lag:
+    mlag: true
+    passive: true
+  mpls:
+    ldp: true
+    bgp: true
+    vpn: true
+    6pe: true
+  ospf:
+    areas: true
+    unnumbered: true
+    import:
+    - bgp
+    - isis
+    - ripv2
+    - connected
+    - static
+    - vrf
+    default.policy: true
+    gr:
+    - ipv4
+    - ipv6
+    password: true
+    priority: true
+    timers: true
+  ripv2:
+    ipv4: true
+    ipv6: true
+    passive: true
+    import:
+    - bgp
+    - isis
+    - ospf
+    - connected
+    - vrf
+  routing:
+    policy:
+      set:
+        locpref: true
+        med: true
+        weight: true
+        prepend: true
+        community: true
+      match:
+        prefix: true
+        nexthop: true
+        aspath: true
+        community:
+          standard: true
+          large: true
+      delete:
+        community: true
+    prefix: true
+    aspath: true
+    community:
+      standard: true
+      large: true
+    static:
+      vrf: true
+      inter_vrf: true
+      discard: true
+  sr:
+    af:
+    - ipv4
+    - ipv6
+    protocol:
+    - isis
+    - ospfv2
+  srv6:
+    isis: true
+    ospf: true
+    bgp: true
+    vpn: true
+  stp:
+    supported_protocols:
+    - stp
+    - rstp
+    - mstp
+    - pvrst
+    enable_per_port: true
+    port_type: true
+  vlan:
+    model: router
+    subif_name: '{ifname}.{subif_index}'
+    svi_interface_name: Vlan{vlan}
+    mixed_trunk: true
+    native_routed: true
+  vrf:
+    ospfv2: true
+    ospfv3: true
+    bgp: true
+    ripv2: true
+    ripng: true
+    isis: true
+  vxlan:
+    vtep6: true
+  tunnel:
+    gre:
+    - vrf
+    wireguard:
+    - vrf

@@ -1,0 +1,19 @@
+defaults:
+  device: frr
+provider: clab
+name: groups-frr
+module: [ospf]
+groups:
+  routers:
+    members: [r1, r2]
+    module: [ospf]
+nodes:
+  r1:
+  r2:
+  h1:
+    device: linux
+    role: host
+links:
+  - [r1, r2]
+  - r1:
+    h1:

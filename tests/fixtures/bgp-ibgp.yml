@@ -1,0 +1,12 @@
+defaults:
+  device: none
+provider: clab
+name: bgp-ibgp
+module: [bgp]
+bgp:
+  as: 65000
+nodes:
+  r1:
+  r2:
+links:
+  - [r1, r2]

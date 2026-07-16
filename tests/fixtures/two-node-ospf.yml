@@ -1,0 +1,10 @@
+defaults:
+  device: none
+provider: clab
+name: two-node-ospf
+module: [ospf]
+nodes:
+  r1:
+  r2:
+links:
+  - [r1, r2]

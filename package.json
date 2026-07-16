@@ -1,0 +1,22 @@
+{
+  "name": "netlab.js",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @exergy-connect/netlab",
+    "test": "npm run test -w @exergy-connect/netlab",
+    "test:compat": "npm run test:compat -w @exergy-connect/netlab",
+    "viewer": "npm run dev -w @exergy-connect/netlab-lab-viewer",
+    "gen:types": "node tools/gen-types.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}

@@ -1,0 +1,49 @@
+module netlab-device {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:device";
+  prefix ndev;
+
+  import netlab-types {
+    prefix ntype;
+  }
+
+  organization "Exergy Connect";
+  description "Device registry schema (none, linux, frr, bird).";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  container devices {
+    list device {
+      key "name";
+      leaf name {
+        type ntype:device-name;
+      }
+      leaf description {
+        type string;
+      }
+      leaf interface_name {
+        type string;
+      }
+      leaf mgmt_if {
+        type string;
+      }
+      leaf loopback_interface_name {
+        type string;
+      }
+      leaf role {
+        type ntype:node-role;
+      }
+      leaf parent {
+        type ntype:device-name;
+      }
+      leaf daemon {
+        type boolean;
+      }
+      leaf _meta_device {
+        type boolean;
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+module netlab-vlan {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:vlan";
+  prefix vlan;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "VLAN module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    list vlans {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf id {
+        type uint16 {
+          range "1..4094";
+        }
+      }
+      leaf mode {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:links" {
+    container vlan {
+      leaf access {
+        type string;
+      }
+      leaf-list trunk {
+        type string;
+      }
+      leaf mode {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    container vlan {
+      leaf access {
+        type string;
+      }
+      leaf-list trunk {
+        type string;
+      }
+      leaf mode {
+        type string;
+      }
+    }
+  }
+}

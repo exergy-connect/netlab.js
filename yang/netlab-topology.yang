@@ -1,0 +1,340 @@
+module netlab-topology {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:topology";
+  prefix nt;
+
+  import netlab-types {
+    prefix ntype;
+  }
+
+  organization "Exergy Connect";
+  description
+    "Public Netlab topology root. Runtime uses unprefixed JSON members matching
+     this module's data nodes (xYang hybrid encoding).";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  container topology {
+    leaf stage {
+      type ntype:stage-name;
+      description "Set by the orchestrator immediately before each validate() call.";
+    }
+
+    leaf name {
+      type string;
+    }
+
+    leaf provider {
+      type ntype:provider-name;
+      default clab;
+    }
+
+    leaf-list module {
+      type string;
+    }
+
+    container defaults {
+      leaf device {
+        type ntype:device-name;
+      }
+    }
+
+    list nodes {
+      key "name";
+      leaf name {
+        type ntype:node-id-ref;
+      }
+      leaf device {
+        type ntype:device-name;
+      }
+      leaf id {
+        type uint32 {
+          range "1..150";
+        }
+      }
+      leaf role {
+        type ntype:node-role;
+      }
+      leaf-list module {
+        type string;
+      }
+      leaf _daemon {
+        type boolean;
+      }
+      leaf _daemon_parent {
+        type string;
+      }
+      container ospf {
+        leaf area { type string; }
+        leaf router_id { type string; }
+        leaf passive { type boolean; }
+        container af {
+          leaf ipv4 { type boolean; }
+          leaf ipv6 { type boolean; }
+        }
+      }
+      container bgp {
+        leaf as { type uint32; }
+        leaf router_id { type string; }
+      }
+      container isis {
+        leaf area { type string; }
+        leaf net { type string; }
+        leaf type { type string; }
+      }
+      list vrfs {
+        key "name";
+        leaf name { type string; }
+        leaf rd { type string; }
+        leaf-list import { type string; }
+        leaf-list export { type string; }
+      }
+      container mgmt {
+        leaf ipv4 {
+          type string;
+        }
+        leaf ipv6 {
+          type string;
+        }
+        leaf mac {
+          type string;
+        }
+        leaf ifname {
+          type string;
+        }
+      }
+      container loopback {
+        leaf ifindex {
+          type uint32;
+        }
+        leaf ifname {
+          type string;
+        }
+        leaf type {
+          type string;
+        }
+        leaf ipv4 {
+          type ntype:ipv4-prefix;
+        }
+        leaf ipv6 {
+          type ntype:ipv6-prefix;
+        }
+        leaf virtual_interface {
+          type boolean;
+        }
+      }
+      container af {
+        leaf ipv4 {
+          type boolean;
+        }
+        leaf ipv6 {
+          type boolean;
+        }
+      }
+      list interfaces {
+        key "ifindex";
+        leaf ifindex {
+          type uint32;
+        }
+        leaf ifname {
+          type string;
+        }
+        leaf ipv4 {
+          type ntype:ipv4-prefix;
+        }
+        leaf ipv6 {
+          type ntype:ipv6-prefix;
+        }
+        leaf linkindex {
+          type uint32;
+        }
+        leaf type {
+          type string;
+        }
+        leaf vrf {
+          type string;
+        }
+        container ospf {
+          leaf area { type string; }
+          leaf network_type { type string; }
+          leaf cost { type uint32; }
+          leaf passive { type boolean; }
+        }
+        container isis {
+          leaf network_type { type string; }
+          leaf metric { type uint32; }
+          leaf passive { type boolean; }
+        }
+        container vlan {
+          leaf access { type string; }
+          leaf-list trunk { type string; }
+          leaf mode { type string; }
+        }
+        list neighbors {
+          key "node";
+          leaf node {
+            type leafref {
+              path "/topology/nodes/name";
+            }
+          }
+          leaf ifname {
+            type string;
+          }
+          leaf ipv4 {
+            type ntype:ipv4-prefix;
+          }
+          leaf ipv6 {
+            type ntype:ipv6-prefix;
+          }
+        }
+      }
+      must "/topology/stage = 'user_input' or /topology/stage = 'normalized' or id" {
+        error-message "node id is required from addressed stage onward";
+        error-app-tag "MISSING";
+      }
+    }
+
+    list links {
+      key "linkindex";
+      leaf linkindex {
+        type uint32;
+      }
+      leaf _linkname {
+        type string;
+        description
+          "Internal diagnostic name. Runtime stores netlab-internal:_linkname;
+           the validate adapter maps that qualified member onto this leaf until
+           cross-module augment merge is available in xYang TS.";
+      }
+      must "/topology/stage = 'user_input' or _linkname" {
+        error-message "netlab-internal:_linkname is required after user_input stage";
+        error-app-tag "MISSING";
+      }
+      leaf type {
+        type ntype:link-type;
+      }
+      leaf bridge {
+        type string;
+      }
+      leaf name {
+        type string;
+      }
+      leaf bandwidth {
+        type uint64;
+      }
+      container prefix {
+        leaf ipv4 {
+          type ntype:ipv4-prefix;
+        }
+        leaf ipv6 {
+          type ntype:ipv6-prefix;
+        }
+        leaf allocation {
+          type string;
+        }
+      }
+      container ospf {
+        leaf area { type string; }
+        leaf cost { type uint32; }
+        leaf network_type { type string; }
+      }
+      container vlan {
+        leaf access { type string; }
+        leaf-list trunk { type string; }
+        leaf mode { type string; }
+      }
+      list interfaces {
+        key "node";
+        leaf node {
+          type leafref {
+            path "/topology/nodes/name";
+          }
+        }
+        leaf ipv4 {
+          type ntype:ipv4-prefix;
+        }
+        leaf ipv6 {
+          type ntype:ipv6-prefix;
+        }
+        leaf ifindex {
+          type uint32;
+        }
+        leaf ifname {
+          type string;
+        }
+      }
+      must "/topology/stage = 'user_input' or linkindex" {
+        error-message "linkindex is required after user_input stage";
+        error-app-tag "MISSING";
+      }
+    }
+
+    container ospf {
+      leaf area { type string; }
+    }
+    container bgp {
+      leaf as { type uint32; }
+    }
+    container isis {
+      leaf area { type string; }
+      leaf type { type string; }
+    }
+    list vlans {
+      key "name";
+      leaf name { type string; }
+      leaf id {
+        type uint16 { range "1..4094"; }
+      }
+      leaf mode { type string; }
+    }
+    list vrfs {
+      key "name";
+      leaf name { type string; }
+      leaf rd { type string; }
+      leaf-list import { type string; }
+      leaf-list export { type string; }
+    }
+
+    container addressing {
+      list pool {
+        key "name";
+        leaf name {
+          type string;
+        }
+        leaf ipv4 {
+          type ntype:ipv4-prefix;
+        }
+        leaf ipv6 {
+          type ntype:ipv6-prefix;
+        }
+        leaf prefix {
+          type uint8;
+        }
+        leaf start {
+          type uint32;
+        }
+        leaf mac {
+          type string;
+        }
+      }
+    }
+
+    list groups {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf-list members {
+        type string;
+      }
+      leaf device {
+        type ntype:device-name;
+      }
+      leaf-list module {
+        type string;
+      }
+    }
+  }
+}

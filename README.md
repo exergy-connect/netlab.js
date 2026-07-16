@@ -8,9 +8,16 @@ The existing [Netlab Python implementation](https://netlab.tools/) serves as the
 
 ## Status
 
-🚧 Early development.
+Initial TypeScript core is in place: YANG schema under `yang/`, transform pipeline in `@exergy-connect/netlab`, stage-gated xYang validation, devices `none`/`linux`/`frr`/`bird`, provider `clab` only, and a browser lab viewer.
 
-The project is currently focused on understanding and reimplementing Netlab's core data-modeling and transformation pipeline.
+Requires Node.js 24+.
+
+```bash
+npm install
+npm run build
+npm test
+npm run viewer   # apps/lab-viewer
+```
 
 ## Goals
 

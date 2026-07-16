@@ -1,0 +1,77 @@
+module netlab-ospf {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:ospf";
+  prefix ospf;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description "OSPF module augmentations.";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology" {
+    container ospf {
+      leaf area {
+        type string;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    container ospf {
+      leaf area {
+        type string;
+      }
+      leaf router_id {
+        type string;
+      }
+      leaf passive {
+        type boolean;
+      }
+      container af {
+        leaf ipv4 {
+          type boolean;
+        }
+        leaf ipv6 {
+          type boolean;
+        }
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    container ospf {
+      leaf area {
+        type string;
+      }
+      leaf network_type {
+        type string;
+      }
+      leaf cost {
+        type uint32;
+      }
+      leaf passive {
+        type boolean;
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:links" {
+    container ospf {
+      leaf area {
+        type string;
+      }
+      leaf cost {
+        type uint32;
+      }
+      leaf network_type {
+        type string;
+      }
+    }
+  }
+}

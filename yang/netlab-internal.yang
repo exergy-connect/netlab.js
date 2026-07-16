@@ -1,0 +1,48 @@
+module netlab-internal {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:internal";
+  prefix ni;
+
+  import netlab-topology {
+    prefix nt;
+  }
+
+  organization "Exergy Connect";
+  description
+    "Transform-only attributes in a separate namespace. Instance JSON uses
+     RFC 7951 qualified names that preserve underscore local names
+     (e.g. netlab-internal:_linkname).";
+
+  revision 2026-07-16 {
+    description "Initial revision.";
+  }
+
+  augment "/nt:topology/nt:links" {
+    leaf _linkname {
+      type string;
+      description "Stable diagnostic link name (Netlab _linkname).";
+    }
+    must "/nt:topology/nt:stage = 'user_input' or _linkname" {
+      error-message "netlab-internal:_linkname is required after user_input stage";
+      error-app-tag "MISSING";
+    }
+  }
+
+  augment "/nt:topology/nt:nodes" {
+    leaf _daemon {
+      type boolean;
+    }
+    leaf _daemon_parent {
+      type string;
+    }
+    leaf-list _removed_attr {
+      type string;
+    }
+  }
+
+  augment "/nt:topology" {
+    leaf-list _Providers {
+      type string;
+    }
+  }
+}
