@@ -51,7 +51,8 @@ export function canonicalizeLinks(
   return out;
 }
 
-function adjustLinkObject(
+/** Port of links.adjust_link_object — also used when appending VLAN access links. */
+export function adjustLinkObject(
   l: unknown,
   linkname: string,
   nodes: Record<string, Node>,
@@ -149,6 +150,24 @@ function adjustInterfaceList(
     }
   }
   return out;
+}
+
+/** Port of links.get_next_linkindex. */
+export function getNextLinkindex(topology: Topology): number {
+  let max = 0;
+  for (const link of topology.links ?? []) {
+    const idx = Number(link.linkindex ?? 0);
+    if (idx > max) max = idx;
+  }
+  return max + 1;
+}
+
+/** Port of links.get_unique_ifindex for virtual interface types (svi, …). */
+export function getUniqueIfindex(node: Node, start: number): number {
+  const used = (node.interfaces ?? []).map((i) => i.ifindex ?? 0);
+  let n = start;
+  while (used.includes(n)) n++;
+  return n;
 }
 
 export function transformLinks(topology: Topology): void {

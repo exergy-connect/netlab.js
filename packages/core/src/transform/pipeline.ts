@@ -79,6 +79,7 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
 
   runModuleHook("link_pre_transform", topology, ctx);
   transformLinks(topology);
+  runModuleHook("module_post_link_transform", topology, ctx);
   runModuleHook("link_post_transform", topology, ctx);
 
   // Match Netlab: module_post_transform (RR clusters, …) before node_post_transform.

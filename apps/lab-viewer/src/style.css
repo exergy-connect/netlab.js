@@ -8,6 +8,8 @@
   --edge: #6b849c;
   --error: #f07178;
   --error-bg: #2a1518;
+  --warning: #e6c07b;
+  --warning-bg: #2a2415;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
@@ -134,28 +136,60 @@ button:hover {
   color: var(--error);
 }
 
-.errors {
+#status.is-warning {
+  color: var(--warning);
+}
+
+.diagnostics {
   margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.diag-block {
   padding: 0.65rem 0.75rem;
-  background: var(--error-bg);
-  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--line));
   border-radius: 8px;
 }
 
-.errors h2 {
+.diag-block.is-error {
+  background: var(--error-bg);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--line));
+}
+
+.diag-block.is-warning {
+  background: var(--warning-bg);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--line));
+}
+
+.diag-block h2 {
   margin: 0 0 0.4rem;
-  color: var(--error);
   font-size: 0.85rem;
 }
 
-.errors ul {
+.diag-block.is-error h2 {
+  color: var(--error);
+}
+
+.diag-block.is-warning h2 {
+  color: var(--warning);
+}
+
+.diag-block ul {
   margin: 0;
   padding-left: 1.1rem;
-  color: #f5c2c7;
   font: 12px/1.45 "IBM Plex Mono", ui-monospace, monospace;
 }
 
-.errors li + li {
+.diag-block.is-error ul {
+  color: #f5c2c7;
+}
+
+.diag-block.is-warning ul {
+  color: #f0e0b0;
+}
+
+.diag-block li + li {
   margin-top: 0.35rem;
 }
 

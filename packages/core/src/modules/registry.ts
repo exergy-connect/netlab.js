@@ -26,6 +26,7 @@ export type ModuleHooks = {
   node_pre_transform?: (node: Node, topology: Topology, ctx: TransformContext) => void;
   node_post_transform?: (node: Node, topology: Topology, ctx: TransformContext) => void;
   module_post_transform?: (topology: Topology, ctx: TransformContext) => void;
+  module_post_link_transform?: (topology: Topology, ctx: TransformContext) => void;
   link_pre_transform?: (link: JsonObject, topology: Topology, ctx: TransformContext) => void;
   link_post_transform?: (link: JsonObject, topology: Topology, ctx: TransformContext) => void;
 };
@@ -37,6 +38,7 @@ function asHooks(m: {
   node_pre_transform?: ModuleHooks["node_pre_transform"];
   node_post_transform?: ModuleHooks["node_post_transform"];
   module_post_transform?: ModuleHooks["module_post_transform"];
+  module_post_link_transform?: ModuleHooks["module_post_link_transform"];
   link_pre_transform?: ModuleHooks["link_pre_transform"];
   link_post_transform?: ModuleHooks["link_post_transform"];
 }): ModuleHooks {

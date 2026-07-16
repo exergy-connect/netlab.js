@@ -119,6 +119,7 @@ links:
     assert.equal((topology.vxlan as { flooding?: string }).flooding, "evpn");
     const red = (topology.vlans as Record<string, { vni?: number; id?: number; evpn?: { evi?: number } }>)
       .red!;
+    assert.equal(red.id, 1000);
     assert.equal(red.vni, 100000 + Number(red.id));
     assert.equal(red.evpn?.evi, red.id);
     const n1 = topology.nodes!.r1!;
@@ -130,5 +131,79 @@ links:
     assert.ok(neighbors.some((nb) => nb.type === "ibgp" && nb.evpn === "ipv4"));
     const nodeRed = (n1.vlans as Record<string, { evpn?: { rd?: string } }>).red!;
     assert.ok(nodeRed.evpn?.rd?.includes(":"));
+  });
+
+  it("expands vlans.*.links into access links with host addressing and SVIs", () => {
+    const topo = loadTopologyString(`
+defaults.device: none
+provider: clab
+groups:
+  _auto_create: True
+  hosts:
+    members: [ h1, h2 ]
+    device: linux
+  switches:
+    members: [ s1, s2 ]
+    module: [ vlan, vxlan, ospf, bgp, evpn ]
+  core:
+    members: [ dut ]
+    module: [ ospf, bgp, evpn ]
+    bgp.rr: True
+bgp.as: 65000
+nodes:
+  dut:
+  s1:
+  s2:
+vlans:
+  red:
+    mode: bridge
+    prefix:
+      ipv4: 172.31.1.0/24
+    links: [ s1-h1, s2-h2 ]
+links:
+  - s1:
+    s2:
+    mtu: 1600
+  - s1:
+    dut:
+    mtu: 1600
+  - s2:
+    dut:
+    mtu: 1600
+`);
+    const { topology, diagnostics } = transform(topo, { validate: false });
+    assert.equal(diagnostics.hasErrors(), false);
+
+    const red = (topology.vlans as Record<string, { id?: number; links?: unknown }>).red!;
+    assert.equal(red.id, 1000);
+    assert.equal(red.links, undefined);
+
+    const accessLinks = (topology.links ?? []).filter(
+      (l) => (l.vlan as { access?: string } | undefined)?.access === "red",
+    );
+    assert.equal(accessLinks.length, 2);
+    for (const link of accessLinks) {
+      assert.equal(link.type, "lan");
+      assert.deepEqual(link.prefix, { ipv4: "172.31.1.0/24" });
+    }
+
+    const h1 = topology.nodes!.h1!;
+    const h2 = topology.nodes!.h2!;
+    assert.ok(h1.interfaces?.length);
+    assert.ok(h2.interfaces?.length);
+    assert.match(String(h1.interfaces![0]!.ipv4), /^172\.31\.1\.\d+\/24$/);
+    assert.match(String(h2.interfaces![0]!.ipv4), /^172\.31\.1\.\d+\/24$/);
+
+    const s1 = topology.nodes!.s1!;
+    const access = s1.interfaces!.find((i) => (i.vlan as { access?: string })?.access === "red");
+    assert.ok(access);
+    // Bridge-mode access ports get no IP (disabled before addressing; stripped when SVI is built)
+    assert.equal(access!.ipv4, undefined);
+    assert.equal((access!.vlan as { access_id?: number }).access_id, 1000);
+
+    const svi = s1.interfaces!.find((i) => i.type === "svi");
+    assert.ok(svi);
+    assert.equal(svi!.ifname, "Vlan1000");
+    assert.equal((s1.vlans as Record<string, { mode?: string }>).red?.mode, "bridge");
   });
 });

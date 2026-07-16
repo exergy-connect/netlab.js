@@ -46,7 +46,7 @@ app.innerHTML = `
         </label>
         <span id="status"></span>
       </div>
-      <div id="errors" class="errors" hidden></div>
+      <div id="diagnostics" class="diagnostics" hidden></div>
     </section>
     <section class="view">
       <div class="graph-wrap">
@@ -64,7 +64,7 @@ app.innerHTML = `
 const src = app.querySelector<HTMLTextAreaElement>("#src")!;
 const out = app.querySelector<HTMLPreElement>("#out")!;
 const status = app.querySelector<HTMLSpanElement>("#status")!;
-const errorsEl = app.querySelector<HTMLDivElement>("#errors")!;
+const diagnosticsEl = app.querySelector<HTMLDivElement>("#diagnostics")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
 const runBtn = app.querySelector<HTMLButtonElement>("#run")!;
 const validateBox = app.querySelector<HTMLInputElement>("#validate")!;
@@ -76,25 +76,55 @@ function fitTextarea(): void {
   src.style.height = `${src.scrollHeight}px`;
 }
 
-function clearErrors(): void {
-  errorsEl.hidden = true;
-  errorsEl.innerHTML = "";
-  status.classList.remove("is-error");
+function formatDiagnostic(d: {
+  module: string;
+  code: string;
+  message: string;
+  path?: string;
+}): string {
+  const where = d.path ? ` (${d.path})` : "";
+  return `[${d.module}/${d.code}] ${d.message}${where}`;
 }
 
-function showErrors(messages: string[]): void {
-  if (!messages.length) {
-    clearErrors();
+function clearDiagnostics(): void {
+  diagnosticsEl.hidden = true;
+  diagnosticsEl.innerHTML = "";
+  status.classList.remove("is-error", "is-warning");
+}
+
+function showDiagnostics(opts: {
+  errors?: string[];
+  warnings?: string[];
+}): void {
+  const errors = opts.errors ?? [];
+  const warnings = opts.warnings ?? [];
+  if (!errors.length && !warnings.length) {
+    clearDiagnostics();
     return;
   }
-  status.classList.add("is-error");
-  errorsEl.hidden = false;
-  errorsEl.innerHTML = `
-    <h2>Transform errors</h2>
-    <ul>
-      ${messages.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
-    </ul>
-  `;
+  status.classList.toggle("is-error", errors.length > 0);
+  status.classList.toggle("is-warning", errors.length === 0 && warnings.length > 0);
+  diagnosticsEl.hidden = false;
+  const sections: string[] = [];
+  if (errors.length) {
+    sections.push(`
+      <div class="diag-block is-error">
+        <h2>Transform errors</h2>
+        <ul>
+          ${errors.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
+        </ul>
+      </div>`);
+  }
+  if (warnings.length) {
+    sections.push(`
+      <div class="diag-block is-warning">
+        <h2>Transform warnings</h2>
+        <ul>
+          ${warnings.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
+        </ul>
+      </div>`);
+  }
+  diagnosticsEl.innerHTML = sections.join("");
 }
 
 function escapeHtml(text: string): string {
@@ -156,7 +186,7 @@ function renderGraph(topology: Topology): void {
 
 function run(): void {
   status.textContent = "Running…";
-  clearErrors();
+  clearDiagnostics();
   try {
     const parsed = yaml.load(src.value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -172,23 +202,20 @@ function run(): void {
     renderGraph(result);
     const errs = diagnostics.list().filter((d) => d.severity === "error");
     const warns = diagnostics.list().filter((d) => d.severity === "warning");
-    if (errs.length) {
-      status.textContent = `${errs.length} error(s); stages: ${JSON.stringify(stages)}`;
-      showErrors(
-        errs.map((d) => {
-          const where = d.path ? ` (${d.path})` : "";
-          return `[${d.module}/${d.code}] ${d.message}${where}`;
-        }),
-      );
-    } else {
-      status.textContent = warns.length
-        ? `OK with ${warns.length} warning(s) — stages: ${JSON.stringify(stages)}`
-        : `OK — stages: ${JSON.stringify(stages)}`;
-    }
+    const parts: string[] = [];
+    if (errs.length) parts.push(`${errs.length} error(s)`);
+    if (warns.length) parts.push(`${warns.length} warning(s)`);
+    status.textContent = parts.length
+      ? `${parts.join(", ")}; stages: ${JSON.stringify(stages)}`
+      : `OK — stages: ${JSON.stringify(stages)}`;
+    showDiagnostics({
+      errors: errs.map(formatDiagnostic),
+      warnings: warns.map(formatDiagnostic),
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     status.textContent = "Transform failed";
-    showErrors([message]);
+    showDiagnostics({ errors: [message] });
     out.textContent = "";
     graph.innerHTML = "";
   }

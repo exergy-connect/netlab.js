@@ -154,6 +154,19 @@ export function formatIfName(template: string, ifindex: number): string {
   return template.replace(/\{ifindex\}/g, String(ifindex));
 }
 
+/** Format device interface name templates with named placeholders (SVI: Vlan{vlan}). */
+export function formatNamedIfName(
+  template: string,
+  args: Record<string, string | number | undefined>,
+): string {
+  let out = template;
+  for (const [key, value] of Object.entries(args)) {
+    if (value === undefined) continue;
+    out = out.replaceAll(`{${key}}`, String(value));
+  }
+  return out;
+}
+
 function nthHost(cidr: string, host: number): string {
   const addr = nthHostAddress(cidr, host);
   return addr; // mgmt often without mask in Netlab

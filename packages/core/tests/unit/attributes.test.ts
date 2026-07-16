@@ -47,7 +47,7 @@ links:
     assert.equal(iface.interfaces, undefined);
   });
 
-  it("does not propagate vlan module data from link (link_module_no_propagate)", () => {
+  it("vlan module merges access VLAN onto interfaces (not via link_module_no_propagate)", () => {
     const topo = loadTopologyString(`
 defaults:
   device: none
@@ -65,8 +65,9 @@ links:
       access: red
 `);
     const { topology } = transform(topo, { validate: false });
-    const iface = topology.nodes!.r1!.interfaces![0]!;
-    // vlan is link_module_no_propagate — must not be copied from link onto interface here
-    assert.equal(iface.vlan, undefined);
+    // vlan stays out of generic link→interface propagation; VLAN link_pre_transform merges it
+    const access = topology.nodes!.r1!.interfaces!.find((i) => i.type !== "svi")!;
+    assert.equal((access.vlan as { access?: string }).access, "red");
+    assert.equal(typeof (access.vlan as { access_id?: number }).access_id, "number");
   });
 });
