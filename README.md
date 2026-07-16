@@ -2,7 +2,7 @@
 
 YANG-native JavaScript implementation of Netlab's data modeling and topology transformations.
 
-netlab.js uses [YANG](https://www.rfc-editor.org/rfc/rfc6020) as the canonical data model and [xYang](https://github.com/JC1415/xYang) for schema handling and validation. Runtime topology data is represented as plain JSON-compatible JavaScript objects and progressively transformed into canonical network topology data.
+netlab.js uses [YANG](https://www.rfc-editor.org/rfc/rfc6020) as the canonical data model and [xYang](https://github.com/exergy-connect/xYang) for schema handling and validation. Runtime topology data is represented as plain JSON-compatible JavaScript objects and progressively transformed into canonical network topology data.
 
 The existing [Netlab Python implementation](https://netlab.tools/) serves as the behavioral reference.
 
