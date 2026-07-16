@@ -58,7 +58,13 @@ app.innerHTML = `
         <svg id="graph" viewBox="0 0 640 360" role="img" aria-label="Topology graph"></svg>
       </div>
       <div class="json-wrap">
-        <h2>Transformed JSON</h2>
+        <div class="json-head">
+          <h2>Transformed JSON</h2>
+          <label class="check">
+            <input id="full-json" type="checkbox" />
+            Full JSON
+          </label>
+        </div>
         <pre id="out"></pre>
       </div>
     </section>
@@ -72,6 +78,10 @@ const diagnosticsEl = app.querySelector<HTMLDivElement>("#diagnostics")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
 const runBtn = app.querySelector<HTMLButtonElement>("#run")!;
 const validateBox = app.querySelector<HTMLInputElement>("#validate")!;
+const fullJsonBox = app.querySelector<HTMLInputElement>("#full-json")!;
+
+/** Last successful transform; kept so the Full JSON checkbox can re-render. */
+let lastResult: Topology | undefined;
 
 src.value = SAMPLE;
 
@@ -139,6 +149,17 @@ function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
+function renderJson(topology: Topology | undefined): void {
+  if (!topology) {
+    out.textContent = "";
+    return;
+  }
+  const view = fullJsonBox.checked
+    ? topology
+    : { nodes: topology.nodes ?? {}, links: topology.links ?? [] };
+  out.textContent = JSON.stringify(view, null, 2);
+}
+
 function renderGraph(topology: Topology): void {
   const nodeNames = Object.keys(topology.nodes ?? {});
   const edges = collectEdges(topology);
@@ -194,7 +215,8 @@ function run(): void {
       validate: validateBox.checked,
       yangDir: "/yang",
     });
-    out.textContent = JSON.stringify(result, null, 2);
+    lastResult = result;
+    renderJson(result);
     renderGraph(result);
     const errs = diagnostics.list().filter((d) => d.severity === "error");
     const warns = diagnostics.list().filter((d) => d.severity === "warning");
@@ -212,12 +234,14 @@ function run(): void {
     const message = e instanceof Error ? e.message : String(e);
     status.textContent = "Transform failed";
     showDiagnostics({ errors: [message] });
-    out.textContent = "";
+    lastResult = undefined;
+    renderJson(undefined);
     graph.innerHTML = "";
   }
 }
 
 src.addEventListener("input", fitTextarea);
 runBtn.addEventListener("click", run);
+fullJsonBox.addEventListener("change", () => renderJson(lastResult));
 fitTextarea();
 run();
