@@ -14,6 +14,7 @@ export type {
 export { INTERNAL_LINKNAME, INTERNAL_NS, SUPPORTED_DEVICES, SUPPORTED_PROVIDER } from "./types.js";
 
 export { deepMerge, cloneJson } from "./data/merge.js";
+export { expandDottedKeys, expandDottedKeysInPlace } from "./data/dotted.js";
 export { getPath, setPath, hasPath } from "./data/path.js";
 export { DiagnosticCollector } from "./diagnose/collector.js";
 

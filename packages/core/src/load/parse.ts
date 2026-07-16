@@ -1,5 +1,6 @@
 import yaml from "js-yaml";
 import type { JsonObject, Topology } from "../types.js";
+import { expandDottedKeys, expandDottedKeysInPlace } from "../data/dotted.js";
 import { deepMerge } from "../data/merge.js";
 import { systemDefaults } from "./defaults.js";
 
@@ -13,7 +14,8 @@ export function parseTopologyText(text: string): Topology {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new Error("Topology must be a YAML/JSON object");
   }
-  return data as Topology;
+  // Match Netlab/python-box box_dots: bgp.as → bgp.as nested object
+  return expandDottedKeys(data as JsonObject) as Topology;
 }
 
 export function loadTopologyString(text: string, options: LoadOptions = {}): Topology {
@@ -22,6 +24,9 @@ export function loadTopologyString(text: string, options: LoadOptions = {}): Top
 }
 
 export function applyDefaults(topology: Topology, options: LoadOptions = {}): Topology {
+  // Also expand programmatic topologies that still carry dotted keys
+  expandDottedKeysInPlace(topology as JsonObject);
+
   const baseDefaults = deepMerge(systemDefaults(), options.defaults ?? {});
   const topoDefaults = (topology.defaults as JsonObject) ?? {};
   topology.defaults = deepMerge(baseDefaults, topoDefaults);
