@@ -8,7 +8,19 @@ module netlab-types {
 
   revision 2026-07-16 {
     description
-      "device-name is an open id string (runtime still remaps unsupported devices).";
+      "Add af-flags grouping; device-name remains an open id string.";
+  }
+
+  grouping af-flags {
+    description "Per-AF boolean enable flags (shared by topology and modules).";
+    container af {
+      leaf ipv4 {
+        type boolean;
+      }
+      leaf ipv6 {
+        type boolean;
+      }
+    }
   }
 
   typedef stage-name {

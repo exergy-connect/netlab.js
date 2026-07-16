@@ -11,42 +11,36 @@ module netlab-vrf {
   description "VRF module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description "vrf-definition grouping for global/node VRF lists.";
+  }
+
+  grouping vrf-definition {
+    description "Shared VRF object fields (global and per-node).";
+    leaf name {
+      type string;
+    }
+    leaf rd {
+      type string;
+    }
+    leaf-list import {
+      type string;
+    }
+    leaf-list export {
+      type string;
+    }
   }
 
   augment "/nt:topology" {
     list vrfs {
       key "name";
-      leaf name {
-        type string;
-      }
-      leaf rd {
-        type string;
-      }
-      leaf-list import {
-        type string;
-      }
-      leaf-list export {
-        type string;
-      }
+      uses vrf-definition;
     }
   }
 
   augment "/nt:topology/nt:nodes" {
     list vrfs {
       key "name";
-      leaf name {
-        type string;
-      }
-      leaf rd {
-        type string;
-      }
-      leaf-list import {
-        type string;
-      }
-      leaf-list export {
-        type string;
-      }
+      uses vrf-definition;
     }
   }
 

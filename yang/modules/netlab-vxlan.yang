@@ -11,23 +11,36 @@ module netlab-vxlan {
   description "VXLAN module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description "vxlan-common and vxlan-vlan-attrs groupings.";
+  }
+
+  grouping vxlan-common {
+    description "VXLAN attributes shared by topology and node containers.";
+    leaf domain { type string; }
+    leaf flooding { type string; }
+    leaf-list vlans { type string; }
+  }
+
+  grouping vxlan-vlan-attrs {
+    description "VXLAN attributes attached to VLAN objects.";
+    leaf vni {
+      type uint32 {
+        range "1..16777215";
+      }
+    }
+    leaf-list vtep_list { type string; }
   }
 
   augment "/nt:topology" {
     container vxlan {
-      leaf domain { type string; }
-      leaf flooding { type string; }
-      leaf-list vlans { type string; }
+      uses vxlan-common;
       leaf use_v6_vtep { type boolean; }
     }
   }
 
   augment "/nt:topology/nt:nodes" {
     container vxlan {
-      leaf domain { type string; }
-      leaf flooding { type string; }
-      leaf-list vlans { type string; }
+      uses vxlan-common;
       leaf vtep { type string; }
       leaf vtep_interface { type string; }
       leaf transport { type string; }
@@ -37,20 +50,10 @@ module netlab-vxlan {
   }
 
   augment "/nt:topology/nt:vlans" {
-    leaf vni {
-      type uint32 {
-        range "1..16777215";
-      }
-    }
-    leaf-list vtep_list { type string; }
+    uses vxlan-vlan-attrs;
   }
 
   augment "/nt:topology/nt:nodes/nt:vlans" {
-    leaf vni {
-      type uint32 {
-        range "1..16777215";
-      }
-    }
-    leaf-list vtep_list { type string; }
+    uses vxlan-vlan-attrs;
   }
 }

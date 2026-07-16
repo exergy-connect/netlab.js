@@ -18,7 +18,51 @@ module netlab-topology {
 
   revision 2026-07-16 {
     description
-      "Add interface pool and link node_count (transform output).";
+      "Factor shared interface/neighbor/addressing leaves into groupings.";
+  }
+
+  grouping mtu {
+    leaf mtu {
+      type uint16 {
+        range "64..9216";
+      }
+    }
+  }
+
+  grouping ipv4-ipv6 {
+    description "Address leaves typed as Netlab prefixes (or boolean unnumbered).";
+    leaf ipv4 {
+      type ntype:ipv4-prefix;
+    }
+    leaf ipv6 {
+      type ntype:ipv6-prefix;
+    }
+  }
+
+  grouping neighbor-body {
+    description "Neighbor ifname and addresses (key leaf node supplied by caller).";
+    leaf ifname {
+      type string;
+    }
+    uses ipv4-ipv6;
+  }
+
+  grouping neighbor {
+    description "Neighbor attachment with a string node key.";
+    leaf node {
+      type string;
+    }
+    uses neighbor-body;
+  }
+
+  grouping if-identity {
+    description "Interface index and name.";
+    leaf ifindex {
+      type uint32;
+    }
+    leaf ifname {
+      type string;
+    }
   }
 
   container topology {
@@ -76,11 +120,7 @@ module netlab-topology {
         type string;
         description "IPv4 router id (attributes.yml use: id).";
       }
-      leaf mtu {
-        type uint16 {
-          range "64..9216";
-        }
-      }
+      uses mtu;
       leaf unmanaged {
         type boolean;
       }
@@ -120,21 +160,11 @@ module netlab-topology {
         }
       }
       container loopback {
-        leaf ifindex {
-          type uint32;
-        }
-        leaf ifname {
-          type string;
-        }
+        uses if-identity;
         leaf type {
           type string;
         }
-        leaf ipv4 {
-          type ntype:ipv4-prefix;
-        }
-        leaf ipv6 {
-          type ntype:ipv6-prefix;
-        }
+        uses ipv4-ipv6;
         leaf pool {
           type string;
         }
@@ -143,42 +173,14 @@ module netlab-topology {
         }
         list neighbors {
           key "node";
-          leaf node {
-            type string;
-          }
-          leaf ifname {
-            type string;
-          }
-          leaf ipv4 {
-            type ntype:ipv4-prefix;
-          }
-          leaf ipv6 {
-            type ntype:ipv6-prefix;
-          }
+          uses neighbor;
         }
       }
-      container af {
-        leaf ipv4 {
-          type boolean;
-        }
-        leaf ipv6 {
-          type boolean;
-        }
-      }
+      uses ntype:af-flags;
       list interfaces {
         key "ifindex";
-        leaf ifindex {
-          type uint32;
-        }
-        leaf ifname {
-          type string;
-        }
-        leaf ipv4 {
-          type ntype:ipv4-prefix;
-        }
-        leaf ipv6 {
-          type ntype:ipv6-prefix;
-        }
+        uses if-identity;
+        uses ipv4-ipv6;
         leaf linkindex {
           type uint32;
         }
@@ -198,11 +200,7 @@ module netlab-topology {
         leaf name {
           type string;
         }
-        leaf mtu {
-          type uint16 {
-            range "64..9216";
-          }
-        }
+        uses mtu;
         leaf vrf {
           type string;
         }
@@ -216,15 +214,7 @@ module netlab-topology {
               path "/topology/nodes/name";
             }
           }
-          leaf ifname {
-            type string;
-          }
-          leaf ipv4 {
-            type ntype:ipv4-prefix;
-          }
-          leaf ipv6 {
-            type ntype:ipv6-prefix;
-          }
+          uses neighbor-body;
         }
       }
       must "/topology/stage = 'user_input' or /topology/stage = 'normalized' or id" {
@@ -285,18 +275,9 @@ module netlab-topology {
       leaf bandwidth {
         type uint64;
       }
-      leaf mtu {
-        type uint16 {
-          range "64..9216";
-        }
-      }
+      uses mtu;
       container prefix {
-        leaf ipv4 {
-          type ntype:ipv4-prefix;
-        }
-        leaf ipv6 {
-          type ntype:ipv6-prefix;
-        }
+        uses ipv4-ipv6;
         leaf allocation {
           type ntype:allocation-mode;
         }
@@ -308,18 +289,8 @@ module netlab-topology {
             path "/topology/nodes/name";
           }
         }
-        leaf ipv4 {
-          type ntype:ipv4-prefix;
-        }
-        leaf ipv6 {
-          type ntype:ipv6-prefix;
-        }
-        leaf ifindex {
-          type uint32;
-        }
-        leaf ifname {
-          type string;
-        }
+        uses ipv4-ipv6;
+        uses if-identity;
       }
       must "/topology/stage = 'user_input' or linkindex" {
         error-message "linkindex is required after user_input stage";
@@ -333,12 +304,7 @@ module netlab-topology {
         leaf name {
           type string;
         }
-        leaf ipv4 {
-          type ntype:ipv4-prefix;
-        }
-        leaf ipv6 {
-          type ntype:ipv6-prefix;
-        }
+        uses ipv4-ipv6;
         leaf prefix {
           type uint8 {
             range "1..32";

@@ -11,44 +11,48 @@ module netlab-evpn {
   description "EVPN module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description "evpn-common and evpn-rt-attrs groupings.";
+  }
+
+  grouping evpn-common {
+    description "EVPN attributes shared by topology and node containers.";
+    leaf-list session { type string; }
+    leaf transport { type string; }
+    leaf-list vlans { type string; }
+    leaf-list vrfs { type string; }
+  }
+
+  grouping evpn-rt-attrs {
+    description "EVPN route-target / EVI attributes on VLAN objects.";
+    leaf evi { type uint32; }
+    leaf rd { type string; }
+    leaf-list import { type string; }
+    leaf-list export { type string; }
   }
 
   augment "/nt:topology" {
     container evpn {
-      leaf-list session { type string; }
-      leaf transport { type string; }
-      leaf-list vlans { type string; }
-      leaf-list vrfs { type string; }
+      uses evpn-common;
       leaf as { type uint32; }
     }
   }
 
   augment "/nt:topology/nt:nodes" {
     container evpn {
-      leaf-list session { type string; }
-      leaf transport { type string; }
-      leaf-list vlans { type string; }
-      leaf-list vrfs { type string; }
+      uses evpn-common;
       leaf domain { type string; }
     }
   }
 
   augment "/nt:topology/nt:vlans" {
     container evpn {
-      leaf evi { type uint32; }
-      leaf rd { type string; }
-      leaf-list import { type string; }
-      leaf-list export { type string; }
+      uses evpn-rt-attrs;
     }
   }
 
   augment "/nt:topology/nt:nodes/nt:vlans" {
     container evpn {
-      leaf evi { type uint32; }
-      leaf rd { type string; }
-      leaf-list import { type string; }
-      leaf-list export { type string; }
+      uses evpn-rt-attrs;
     }
   }
 }

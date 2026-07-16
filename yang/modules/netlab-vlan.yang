@@ -12,8 +12,7 @@ module netlab-vlan {
 
   revision 2026-07-16 {
     description
-      "Cover transform output: node vlan, bridge_group, SVI mode, neighbor/link
-       interface vlan containers, access_id.";
+      "vlan-definition grouping for global/node VLAN lists; keep vlan-if-attrs.";
   }
 
   grouping vlan-if-attrs {
@@ -41,27 +40,32 @@ module netlab-vlan {
     }
   }
 
+  grouping vlan-definition {
+    description "Shared VLAN object fields (global and per-node).";
+    leaf name {
+      type string;
+    }
+    leaf id {
+      type uint16 {
+        range "1..4094";
+      }
+    }
+    leaf mode {
+      type string;
+    }
+    leaf bridge_group {
+      type uint32;
+    }
+    container prefix {
+      leaf ipv4 { type string; }
+      leaf ipv6 { type string; }
+    }
+  }
+
   augment "/nt:topology" {
     list vlans {
       key "name";
-      leaf name {
-        type string;
-      }
-      leaf id {
-        type uint16 {
-          range "1..4094";
-        }
-      }
-      leaf mode {
-        type string;
-      }
-      leaf bridge_group {
-        type uint32;
-      }
-      container prefix {
-        leaf ipv4 { type string; }
-        leaf ipv6 { type string; }
-      }
+      uses vlan-definition;
       leaf-list links {
         type string;
         description "Access-link shorthand (e.g. dut-h1).";
@@ -81,24 +85,7 @@ module netlab-vlan {
     }
     list vlans {
       key "name";
-      leaf name {
-        type string;
-      }
-      leaf id {
-        type uint16 {
-          range "1..4094";
-        }
-      }
-      leaf mode {
-        type string;
-      }
-      leaf bridge_group {
-        type uint32;
-      }
-      container prefix {
-        leaf ipv4 { type string; }
-        leaf ipv6 { type string; }
-      }
+      uses vlan-definition;
     }
   }
 

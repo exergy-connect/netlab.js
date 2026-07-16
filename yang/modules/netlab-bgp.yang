@@ -11,8 +11,23 @@ module netlab-bgp {
   description "BGP module augmentations.";
 
   revision 2026-07-16 {
-    description
-      "Group bgp (node namespace), node bgp.rr, neighbors list name.";
+    description "bgp-rr-attrs grouping for group/node BGP containers.";
+  }
+
+  grouping bgp-rr-attrs {
+    description "BGP AS and route-reflector attributes shared by groups and nodes.";
+    leaf as {
+      type uint32;
+    }
+    leaf rr {
+      type boolean;
+    }
+    leaf rr_cluster_id {
+      type string;
+    }
+    leaf rr_mesh {
+      type boolean;
+    }
   }
 
   augment "/nt:topology" {
@@ -26,35 +41,13 @@ module netlab-bgp {
   // Groups inherit the node attribute namespace (attributes.yml node_group).
   augment "/nt:topology/nt:groups" {
     container bgp {
-      leaf as {
-        type uint32;
-      }
-      leaf rr {
-        type boolean;
-      }
-      leaf rr_cluster_id {
-        type string;
-      }
-      leaf rr_mesh {
-        type boolean;
-      }
+      uses bgp-rr-attrs;
     }
   }
 
   augment "/nt:topology/nt:nodes" {
     container bgp {
-      leaf as {
-        type uint32;
-      }
-      leaf rr {
-        type boolean;
-      }
-      leaf rr_cluster_id {
-        type string;
-      }
-      leaf rr_mesh {
-        type boolean;
-      }
+      uses bgp-rr-attrs;
       leaf router_id {
         type string;
       }
