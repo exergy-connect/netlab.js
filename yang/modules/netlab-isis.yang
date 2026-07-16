@@ -11,29 +11,29 @@ module netlab-isis {
   description "IS-IS module augmentations.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description "isis-common grouping for topology/node IS-IS containers.";
+  }
+
+  grouping isis-common {
+    description "IS-IS attributes shared by topology and node containers.";
+    leaf area {
+      type string;
+    }
+    leaf type {
+      type string;
+    }
   }
 
   augment "/nt:topology" {
     container isis {
-      leaf area {
-        type string;
-      }
-      leaf type {
-        type string;
-      }
+      uses isis-common;
     }
   }
 
   augment "/nt:topology/nt:nodes" {
     container isis {
-      leaf area {
-        type string;
-      }
+      uses isis-common;
       leaf net {
-        type string;
-      }
-      leaf type {
         type string;
       }
     }

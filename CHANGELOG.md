@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **YANG groupings:** `uses` for shared shapes (`mtu`, `ipv4-ipv6`, `neighbor`/`neighbor-body`, `if-identity`, `ntype:af-flags`, `vlan-definition`, `vlan-if-attrs`, `vrf-definition`, `bgp-rr-attrs`, `evpn-common`/`evpn-rt-attrs`, `vxlan-common`/`vxlan-vlan-attrs`, `ospf-link-attrs`). Cross-module imported groupings require `@exergy-connect/xyang` ≥ 0.1.6.
+- **YANG groupings:** `uses` for shared shapes (`mtu`, `ipv4-ipv6`, `neighbor`/`neighbor-body`, `if-identity`, `ntype:af-flags`, `vlan-definition`, `vlan-if-attrs`, `vrf-definition`, `bgp-rr-attrs`, `evpn-common`/`evpn-rt-attrs`, `vxlan-common`/`vxlan-vlan-attrs`, `ospf-link-attrs`, `isis-common`). Cross-module imported groupings require `@exergy-connect/xyang` ≥ 0.1.6.
 - **Module order:** transform hooks still sort with `transform_after`; final topology/node `module` lists use `config_after` (Netlab `reorder_node_modules`), e.g. `[ospf, bgp]` not `[bgp, ospf]`.
 - **Addressing IPAM:** removed hardcoded `defaultIpv4PrefixLen`; prefix lengths come from YAML plus Netlab `setup_pools` rules (`p2p_subnet`→30, `lan_subnet`→24, loopback→32, mgmt→24).
 - **Bird:** moved from `data/devices/bird.yml` to `data/daemons/bird.yml` without modifying the Netlab YAML content.

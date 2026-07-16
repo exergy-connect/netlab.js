@@ -5,8 +5,10 @@ export const YANG_MODULES = [
   "netlab-topology.yang",
   "netlab-types.yang",
   "modules/netlab-bgp.yang",
+  "modules/netlab-evpn.yang",
   "modules/netlab-isis.yang",
   "modules/netlab-ospf.yang",
   "modules/netlab-vlan.yang",
-  "modules/netlab-vrf.yang"
+  "modules/netlab-vrf.yang",
+  "modules/netlab-vxlan.yang"
 ] as const;
