@@ -8,6 +8,9 @@
   ],
   "scripts": {
     "build": "npm run build -w @exergy-connect/netlab",
+    "build:viewer": "npm run build -w @exergy-connect/netlab-lab-viewer",
+    "build:all": "npm run build && npm run build:viewer",
+    "build:pages": "node tools/sync-docs.mjs",
     "test": "npm run test -w @exergy-connect/netlab",
     "test:compat": "npm run test:compat -w @exergy-connect/netlab",
     "viewer": "npm run dev -w @exergy-connect/netlab-lab-viewer",

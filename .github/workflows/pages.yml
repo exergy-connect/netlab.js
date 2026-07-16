@@ -1,0 +1,89 @@
+# Build the lab viewer and publish the compiled bundle to /docs for GitHub Pages.
+# Configure the repository: Settings → Pages → Deploy from a branch → main /docs.
+# On main pushes and same-repo PRs, out-of-date docs are committed by the bot.
+# Fork PRs fail if docs are stale (no write access to contributor branches).
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/lab-viewer/**"
+      - "packages/core/**"
+      - "data/**"
+      - "yang/**"
+      - "tools/sync-docs.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "apps/lab-viewer/**"
+      - "packages/core/**"
+      - "data/**"
+      - "yang/**"
+      - "tools/sync-docs.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Publish /docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build library
+        run: npm run build
+
+      - name: Sync lab viewer into /docs
+        env:
+          VITE_BASE_PATH: /netlab.js/
+        run: npm run build:pages
+
+      - name: Commit updated /docs
+        env:
+          AUTO_COMMIT_DOCS: ${{ ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+        run: |
+          git add -A docs
+          if git diff --cached --quiet HEAD -- docs; then
+            echo "/docs is up to date."
+            exit 0
+          fi
+          if [ "$AUTO_COMMIT_DOCS" = "true" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(docs): sync GitHub Pages lab viewer"
+            git push
+            exit 0
+          fi
+          echo "::error::Committed /docs site is out of date."
+          echo "From the repo root: VITE_BASE_PATH=/netlab.js/ npm run build:pages"
+          echo "Then: git add docs && commit."
+          git diff --cached --stat HEAD -- docs
+          exit 1
