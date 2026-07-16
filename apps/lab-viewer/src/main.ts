@@ -4,6 +4,10 @@ import {
   transform,
   type Topology,
 } from "@exergy-connect/netlab";
+import {
+  collectEdges,
+  orderForMinimalCrossings,
+} from "./layout";
 import "./style.css";
 
 declare const __BUILD_TIME__: string;
@@ -136,8 +140,9 @@ function escapeHtml(text: string): string {
 }
 
 function renderGraph(topology: Topology): void {
-  const nodes = Object.keys(topology.nodes ?? {});
-  const links = topology.links ?? [];
+  const nodeNames = Object.keys(topology.nodes ?? {});
+  const edges = collectEdges(topology);
+  const nodes = orderForMinimalCrossings(nodeNames, edges);
   const w = 640;
   const h = 360;
   const cx = w / 2;
@@ -149,23 +154,14 @@ function renderGraph(topology: Topology): void {
     pos.set(name, { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
   });
 
-  const lines = links
-    .flatMap((link) => {
-      const ifaces = link.interfaces ?? [];
-      if (ifaces.length < 2) return [];
-      const edges: string[] = [];
-      for (let i = 0; i < ifaces.length; i++) {
-        for (let j = i + 1; j < ifaces.length; j++) {
-          const a = pos.get(String(ifaces[i]!.node));
-          const b = pos.get(String(ifaces[j]!.node));
-          if (!a || !b) continue;
-          edges.push(
-            `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="edge"/>`,
-          );
-        }
-      }
-      return edges;
+  const lines = edges
+    .map(([u, v]) => {
+      const a = pos.get(u);
+      const b = pos.get(v);
+      if (!a || !b) return "";
+      return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="edge"/>`;
     })
+    .filter(Boolean)
     .join("");
 
   const circles = nodes
