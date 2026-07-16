@@ -87,6 +87,12 @@ export function moduleTransformAfter(name: string): string[] {
   return Array.isArray(t) ? t.map(String) : [];
 }
 
+export function moduleConfigAfter(name: string): string[] {
+  const def = getModuleDef(name);
+  const t = def?.config_after;
+  return Array.isArray(t) ? t.map(String) : [];
+}
+
 export function moduleNodeCopy(name: string): string[] {
   const attrs = getModuleDef(name)?.attributes;
   const copy = attrs && typeof attrs === "object" ? attrs.node_copy : undefined;

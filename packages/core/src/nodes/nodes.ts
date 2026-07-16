@@ -105,8 +105,13 @@ export function transformNodes(topology: Topology): void {
   for (const node of Object.values(topology.nodes ?? {})) {
     const id = node.id ?? 1;
     const def = getDevice(String(node.device ?? "frr"));
+    const ifindexOffset = Number((def as JsonObject).ifindex_offset ?? 1);
+    const mgmtIf =
+      def.mgmt_if !== undefined
+        ? String(def.mgmt_if)
+        : formatIfName(String(def.interface_name ?? "eth{ifindex}"), ifindexOffset - 1);
     node.mgmt = {
-      ifname: String(def.mgmt_if ?? "eth0"),
+      ifname: mgmtIf || "eth0",
       ipv4: nthHost(mgmtBase, mgmtStart + id),
       mac: macFromId(String(mgmtPool.mac ?? "CA-FE-00-00-00-00"), id),
     };

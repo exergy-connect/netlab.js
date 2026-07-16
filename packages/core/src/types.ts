@@ -125,5 +125,5 @@ export type DiagnosticCollectorLike = {
 
 export const INTERNAL_NS = "netlab-internal";
 export const INTERNAL_LINKNAME = `${INTERNAL_NS}:_linkname`;
-export const SUPPORTED_DEVICES = ["none", "linux", "frr", "bird"] as const;
+export const SUPPORTED_DEVICES = ["none", "linux", "frr", "bird", "iosv"] as const;
 export const SUPPORTED_PROVIDER = "clab" as const;

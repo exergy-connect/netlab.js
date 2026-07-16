@@ -92,10 +92,11 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
 
   processQuirks(topology);
   providerPostTransform(topology, ctx);
-  topology.module = collectTopologyModules(topology);
+  // Final module lists use config_after (Netlab reorder_node_modules default).
+  topology.module = collectTopologyModules(topology, "config_after");
   for (const node of Object.values(topology.nodes ?? {})) {
     if (Array.isArray(node.module) && node.module.length > 0) {
-      node.module = sortModules(node.module);
+      node.module = sortModules(node.module, "config_after");
     }
   }
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { collectTopologyModules, sortModules } from "../../src/modules/registry.js";
 import {
   loadModuleDefs,
+  moduleConfigAfter,
   moduleNoPropagate,
   moduleNodeCopy,
   moduleRequires,
@@ -48,6 +49,27 @@ describe("protocol modules", () => {
     assert.ok(ordered.indexOf("vlan") < ordered.indexOf("vxlan"));
     assert.ok(ordered.indexOf("vxlan") < ordered.indexOf("evpn"));
     assert.ok(ordered.indexOf("bgp") < ordered.indexOf("evpn"));
+  });
+
+  it("orders final module lists with config_after (bgp after ospf)", () => {
+    assert.ok(moduleConfigAfter("bgp").includes("ospf"));
+    assert.deepEqual(sortModules(["bgp", "ospf"], "config_after"), ["ospf", "bgp"]);
+    const topo = loadTopologyString(`
+defaults:
+  device: none
+provider: clab
+module: [bgp, ospf]
+bgp:
+  as: 65000
+nodes:
+  r1:
+  r2:
+links:
+  - r1-r2
+`);
+    const { topology } = transform(topo, { validate: false });
+    assert.deepEqual(topology.module, ["ospf", "bgp"]);
+    assert.deepEqual(topology.nodes!.r1!.module, ["ospf", "bgp"]);
   });
 
   it("runs ospf + isis + bgp hooks on a none lab", () => {

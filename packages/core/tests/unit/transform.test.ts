@@ -40,7 +40,7 @@ links:
   it("keeps list-form nodes and maps unsupported devices to frr with a warning", () => {
     const topo = loadTopologyString(`
 defaults:
-  device: iosv
+  device: eos
 provider: clab
 nodes:
   - name: rr1
@@ -54,7 +54,26 @@ links:
     assert.equal(topology.nodes!.pe1!.device, "frr");
     assert.ok((topology.links?.[0]?.interfaces ?? []).length >= 2);
     const warnings = diagnostics.list().filter((d) => d.severity === "warning");
-    assert.ok(warnings.some((d) => d.message.includes("Unsupported device 'iosv'")));
+    assert.ok(warnings.some((d) => d.message.includes("Unsupported device 'eos'")));
+    assert.equal(diagnostics.hasErrors(), false);
+  });
+
+  it("uses iosv interface naming (GigabitEthernet / Loopback)", () => {
+    const topo = loadTopologyString(`
+defaults:
+  device: iosv
+provider: clab
+nodes:
+  - name: rr1
+  - pe1
+links:
+  - rr1-pe1
+`);
+    const { topology, diagnostics } = transform(topo, { validate: false });
+    assert.equal(topology.nodes!.rr1!.device, "iosv");
+    assert.equal(topology.nodes!.rr1!.loopback!.ifname, "Loopback0");
+    assert.equal(topology.nodes!.rr1!.mgmt!.ifname, "GigabitEthernet0/0");
+    assert.equal(topology.nodes!.rr1!.interfaces![0]!.ifname, "GigabitEthernet0/1");
     assert.equal(diagnostics.hasErrors(), false);
   });
 });

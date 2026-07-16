@@ -2,6 +2,7 @@ import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 import { deepMerge } from "../data/merge.js";
 import {
   getModuleDef,
+  moduleConfigAfter,
   moduleNodeCopy,
   moduleRequires,
   moduleTransformAfter,
@@ -61,20 +62,30 @@ export function listModules(): ModuleHooks[] {
   return MODULES;
 }
 
-export function sortModules(names: string[]): string[] {
+/** Secondary sort key: transform_after during pipeline hooks; config_after for final export (Netlab). */
+export type ModuleSortKey = "transform_after" | "config_after";
+
+export function sortModules(
+  names: string[],
+  secondary: ModuleSortKey = "transform_after",
+): string[] {
   const byName = new Map(MODULES.map((m) => [m.name, m]));
   const result: string[] = [];
   const visiting = new Set<string>();
   const done = new Set<string>();
 
+  function secondaryDeps(n: string): string[] {
+    if (secondary === "config_after") return moduleConfigAfter(n);
+    const mod = byName.get(n);
+    return mod?.transform_after ?? moduleTransformAfter(n);
+  }
+
   function visit(n: string): void {
     if (done.has(n)) return;
     if (visiting.has(n)) return;
     visiting.add(n);
-    const mod = byName.get(n);
-    const requires = mod?.requires ?? moduleRequires(n);
-    const after = mod?.transform_after ?? moduleTransformAfter(n);
-    for (const dep of [...requires, ...after]) {
+    const requires = byName.get(n)?.requires ?? moduleRequires(n);
+    for (const dep of [...requires, ...secondaryDeps(n)]) {
       if (names.includes(dep)) visit(dep);
     }
     visiting.delete(n);
@@ -86,12 +97,15 @@ export function sortModules(names: string[]): string[] {
   return result;
 }
 
-export function collectTopologyModules(topology: Topology): string[] {
+export function collectTopologyModules(
+  topology: Topology,
+  secondary: ModuleSortKey = "transform_after",
+): string[] {
   const set = new Set<string>(topology.module ?? []);
   for (const node of Object.values(topology.nodes ?? {})) {
     for (const m of node.module ?? []) set.add(m);
   }
-  return sortModules([...set]);
+  return sortModules([...set], secondary);
 }
 
 export function mergeModuleParams(topology: Topology): void {
