@@ -22,6 +22,12 @@ export {
   applyDefaults,
 } from "./load/load.js";
 export { systemDefaults } from "./load/defaults.js";
+export {
+  getAttributes,
+  getLinkPropagateAttributes,
+  getLinkModuleNoPropagate,
+  getPoolNoCopy,
+} from "./load/attributes.js";
 
 export { validateAt } from "./validate/validate-at.js";
 export { loadNetlabYang, createValidator, defaultYangDir } from "./validate/schema.js";
@@ -36,6 +42,7 @@ export { canonicalizeLinks, transformLinks } from "./links/links.js";
 export {
   setupAddressing,
   setupPools,
+  createPoolSnapshot,
   allocateLinkPrefix,
   resetPoolCursors,
 } from "./addressing/ipam.js";

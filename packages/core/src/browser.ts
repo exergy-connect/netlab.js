@@ -30,8 +30,15 @@ export { canonicalizeLinks, transformLinks } from "./links/links.js";
 export {
   setupAddressing,
   setupPools,
+  createPoolSnapshot,
   allocateLinkPrefix,
   resetPoolCursors,
 } from "./addressing/ipam.js";
+export {
+  getAttributes,
+  getLinkPropagateAttributes,
+  getLinkModuleNoPropagate,
+  getPoolNoCopy,
+} from "./load/attributes.js";
 export { loadDevices, getDevice } from "./devices/registry.js";
 export { initGroups, autoCreateGroupMembers, copyGroupData } from "./groups/groups.js";

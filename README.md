@@ -8,7 +8,7 @@ The existing [Netlab Python implementation](https://netlab.tools/) serves as the
 
 ## Status
 
-Initial TypeScript core is in place: YANG schema under `yang/`, transform pipeline in `@exergy-connect/netlab`, stage-gated xYang validation, devices `none`/`linux`/`frr`/`bird`, provider `clab` only, and a browser lab viewer.
+Initial TypeScript core is in place: YANG schema under `yang/`, transform pipeline in `@exergy-connect/netlab`, stage-gated xYang validation, devices `none`/`linux`/`frr`/`bird`/`iosv`, provider `clab` only, and a browser lab viewer.
 
 Requires Node.js 24+.
 
@@ -62,7 +62,7 @@ JavaScript transformations
 Canonical topology data
 ````
 
-YANG defines the model. xYang provides schema handling and validation. JavaScript functions transform the topology data.
+YANG defines the model (covering what Netlab expresses in `defaults/attributes.yml` for schema). xYang provides schema handling and validation. JavaScript transformations apply Netlab behavior, including transform-control lists from `data/defaults/attributes.yml` such as `link_no_propagate` and `pool_no_copy`.
 
 ## Relationship to Netlab
 

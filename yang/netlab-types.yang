@@ -7,7 +7,8 @@ module netlab-types {
   description "Shared typedefs and identities for the Netlab data model.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description
+      "Add iosv device and vlan_member link type (attributes.yml parity).";
   }
 
   typedef stage-name {
@@ -26,6 +27,7 @@ module netlab-types {
       enum linux;
       enum frr;
       enum bird;
+      enum iosv;
     }
     description "Supported device identities.";
   }
@@ -54,6 +56,7 @@ module netlab-types {
       enum loopback;
       enum lag;
       enum tunnel;
+      enum vlan_member;
     }
   }
 
@@ -76,6 +79,14 @@ module netlab-types {
     type string {
       length "1..32";
       pattern '[A-Za-z]([-_.A-Za-z0-9]*[A-Za-z0-9])?';
+    }
+  }
+
+  typedef allocation-mode {
+    type enumeration {
+      enum p2p;
+      enum sequential;
+      enum id_based;
     }
   }
 }

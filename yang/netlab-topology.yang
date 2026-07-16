@@ -10,10 +10,15 @@ module netlab-topology {
   organization "Exergy Connect";
   description
     "Public Netlab topology root. Runtime uses unprefixed JSON members matching
-     this module's data nodes (xYang hybrid encoding).";
+     this module's data nodes (xYang hybrid encoding).
+
+     Schema coverage mirrors Netlab defaults/attributes.yml for core topology
+     objects; transform-control lists (link_no_propagate, pool_no_copy, …)
+     stay in YAML and are applied by the JS pipeline.";
 
   revision 2026-07-16 {
-    description "Initial revision.";
+    description
+      "Core attributes.yml parity: node/link/interface/pool/group fields.";
   }
 
   container topology {
@@ -64,6 +69,36 @@ module netlab-topology {
       leaf-list module {
         type string;
       }
+      leaf box {
+        type string;
+      }
+      leaf router_id {
+        type string;
+        description "IPv4 router id (attributes.yml use: id).";
+      }
+      leaf mtu {
+        type uint16 {
+          range "64..9216";
+        }
+      }
+      leaf unmanaged {
+        type boolean;
+      }
+      leaf memory {
+        type uint32;
+      }
+      leaf cpu {
+        type string;
+      }
+      leaf-list skip_config {
+        type string;
+      }
+      leaf-list group {
+        type string;
+      }
+      anydata config {
+        description "Inline config templates (list or dict; files plugin).";
+      }
       leaf _daemon {
         type boolean;
       }
@@ -100,8 +135,26 @@ module netlab-topology {
         leaf ipv6 {
           type ntype:ipv6-prefix;
         }
+        leaf pool {
+          type string;
+        }
         leaf virtual_interface {
           type boolean;
+        }
+        list neighbors {
+          key "node";
+          leaf node {
+            type string;
+          }
+          leaf ifname {
+            type string;
+          }
+          leaf ipv4 {
+            type ntype:ipv4-prefix;
+          }
+          leaf ipv6 {
+            type ntype:ipv6-prefix;
+          }
         }
       }
       container af {
@@ -132,8 +185,25 @@ module netlab-topology {
         leaf type {
           type string;
         }
+        leaf role {
+          type string;
+        }
+        leaf bridge {
+          type string;
+        }
+        leaf name {
+          type string;
+        }
+        leaf mtu {
+          type uint16 {
+            range "64..9216";
+          }
+        }
         leaf vrf {
           type string;
+        }
+        leaf virtual_interface {
+          type boolean;
         }
         list neighbors {
           key "node";
@@ -183,11 +253,34 @@ module netlab-topology {
       leaf name {
         type string;
       }
+      leaf role {
+        type string;
+      }
+      leaf pool {
+        type string;
+      }
+      leaf disable {
+        type boolean;
+      }
+      leaf shutdown {
+        type boolean;
+      }
+      leaf unnumbered {
+        type boolean;
+      }
+      leaf vlan_name {
+        type string;
+      }
+      leaf parentindex {
+        type uint32;
+      }
       leaf bandwidth {
         type uint64;
       }
       leaf mtu {
-        type uint16;
+        type uint16 {
+          range "64..9216";
+        }
       }
       container prefix {
         leaf ipv4 {
@@ -197,7 +290,7 @@ module netlab-topology {
           type ntype:ipv6-prefix;
         }
         leaf allocation {
-          type string;
+          type ntype:allocation-mode;
         }
       }
       list interfaces {
@@ -239,13 +332,26 @@ module netlab-topology {
           type ntype:ipv6-prefix;
         }
         leaf prefix {
-          type uint8;
+          type uint8 {
+            range "1..32";
+          }
+        }
+        leaf prefix6 {
+          type uint8 {
+            range "1..128";
+          }
         }
         leaf start {
           type uint32;
         }
+        leaf allocation {
+          type ntype:allocation-mode;
+        }
         leaf mac {
           type string;
+        }
+        leaf unnumbered {
+          type boolean;
         }
       }
     }
@@ -266,6 +372,15 @@ module netlab-topology {
       }
       leaf-list module {
         type string;
+      }
+      leaf-list config {
+        type string;
+      }
+      anydata vars {
+        description "Group Ansible vars.";
+      }
+      anydata node_data {
+        description "Data copied onto group member nodes.";
       }
       leaf _auto_create {
         type boolean;

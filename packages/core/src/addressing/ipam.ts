@@ -1,6 +1,7 @@
 import ipaddr from "ipaddr.js";
 import type { JsonObject, Link, Topology } from "../types.js";
 import { deepMerge } from "../data/merge.js";
+import { getPoolNoCopy } from "../load/attributes.js";
 
 type Af = "ipv4" | "ipv6";
 
@@ -68,14 +69,30 @@ export function setupPools(
   return out;
 }
 
+/** Netlab create_pool_generators: copy pool attrs except pool_no_copy keys. */
+export function createPoolSnapshot(
+  addressing: Record<string, JsonObject>,
+  defaults: JsonObject = {},
+): Record<string, JsonObject> {
+  const noCopy = getPoolNoCopy(defaults);
+  const pools: Record<string, JsonObject> = {};
+  for (const [name, pool] of Object.entries(addressing)) {
+    const snap: JsonObject = {};
+    for (const [key, value] of Object.entries(pool)) {
+      if (noCopy.has(key)) continue;
+      snap[key] = value as never;
+    }
+    pools[name] = snap;
+  }
+  return pools;
+}
+
 export function setupAddressing(topology: Topology): void {
   resetPoolCursors();
-  const addressing = setupPools(
-    (topology.addressing ?? {}) as JsonObject,
-    (topology.defaults ?? {}) as JsonObject,
-  );
+  const defaults = (topology.defaults ?? {}) as JsonObject;
+  const addressing = setupPools((topology.addressing ?? {}) as JsonObject, defaults);
   topology.addressing = addressing;
-  topology.pools = { ...addressing };
+  topology.pools = createPoolSnapshot(addressing, defaults);
 
   for (const [name, pool] of Object.entries(addressing)) {
     const cur: PoolCursor = {};

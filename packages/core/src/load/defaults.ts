@@ -11,12 +11,21 @@ function loadDefaultYaml(name: string): JsonObject {
   return raw as JsonObject;
 }
 
+/** Load every data/defaults/*.yml as defaults.<basename> (Netlab _include). */
+function loadDefaultsFromYaml(): JsonObject {
+  const out: JsonObject = {};
+  for (const name of Object.keys(DEFAULTS_YAML)) {
+    out[name] = loadDefaultYaml(name);
+  }
+  return out;
+}
+
 /** Built-in system defaults (subset of Netlab topology-defaults + module YAML). */
 export function systemDefaults(): JsonObject {
   return {
     device: "frr",
     provider: "clab",
-    addressing: loadDefaultYaml("addressing"),
+    ...loadDefaultsFromYaml(),
     ...moduleDefaultsForSystem(),
   };
 }

@@ -16,6 +16,11 @@ import {
   assignInterfaceAddresses,
   getDefaultLinkType,
 } from "../addressing/ipam.js";
+import {
+  getLinkModuleNoPropagate,
+  getLinkPropagateAttributes,
+} from "../load/attributes.js";
+import { mergeWithRemovedAttributes } from "../data/merge.js";
 
 /** Port of adjust_link_object + adjust_link_list (canonical form). */
 export function canonicalizeLinks(
@@ -148,6 +153,10 @@ function adjustInterfaceList(
 
 export function transformLinks(topology: Topology): void {
   const nodes = topology.nodes ?? {};
+  const defaults = (topology.defaults ?? {}) as JsonObject;
+  const linkPropagate = getLinkPropagateAttributes(defaults);
+  const moduleNoPropagate = getLinkModuleNoPropagate(defaults);
+
   for (const link of topology.links ?? []) {
     setLinkTypeRole(link, nodes);
     const ifaces = link.interfaces ?? [];
@@ -161,9 +170,28 @@ export function transformLinks(topology: Topology): void {
     allocateLinkPrefix(topology, link);
     assignInterfaceAddresses(topology, link);
 
+    // First pass: create node interfaces (Netlab create_node_interfaces)
+    const created: { node: string; data: Interface }[] = [];
     for (const lif of ifaces) {
-      const node = nodes[lif.node!];
+      const nodeName = lif.node!;
+      const node = nodes[nodeName];
       if (!node) continue;
+
+      const linkAttr = new Set(linkPropagate);
+      for (const m of node.module ?? []) linkAttr.add(m);
+      for (const m of moduleNoPropagate) linkAttr.delete(m);
+
+      const fromLink: JsonObject = {};
+      for (const [k, v] of Object.entries(link as JsonObject)) {
+        if (linkAttr.has(k)) fromLink[k] = structuredClone(v) as never;
+      }
+
+      const { node: _n, ...lifRest } = lif as LinkInterface & JsonObject;
+      const ifdata = mergeWithRemovedAttributes(
+        structuredClone(lifRest) as JsonObject,
+        fromLink,
+      ) as Interface;
+
       const def = getDevice(String(node.device ?? "frr"));
       const isVirtual = link.type === "loopback";
       let ifindex: number;
@@ -177,45 +205,36 @@ export function transformLinks(topology: Topology): void {
             "Loopback{ifindex}",
         );
         ifname = formatIfName(tmpl, reduced);
-        lif.virtual_interface = true;
+        ifdata.virtual_interface = true;
       } else {
         ifindex = nextIfIndex(node);
         ifname = formatIfName(String(def.interface_name ?? "eth{ifindex}"), ifindex);
       }
+      ifdata.ifindex = ifindex;
+      ifdata.ifname = ifname;
+      if (!ifdata.type) ifdata.type = link.type ?? getDefaultLinkType(link);
+      ifdata.neighbors = [];
+
       lif.ifindex = ifindex;
       lif.ifname = ifname;
-
-      const neighbors: Neighbor[] = ifaces
-        .filter((o) => o.node !== lif.node)
-        .map((o) => {
-          const n: Neighbor = { node: o.node ?? "" };
-          if (o.ifname !== undefined) n.ifname = o.ifname;
-          if (o.ipv4 !== undefined) n.ipv4 = o.ipv4;
-          if (o.ipv6 !== undefined) n.ipv6 = o.ipv6;
-          return n;
-        });
-
-      const nif: Interface = {
-        ifindex,
-        ifname,
-        type: link.type ?? getDefaultLinkType(link),
-        neighbors,
-      };
-      if (isVirtual) nif.virtual_interface = true;
-      if (lif.ipv4 !== undefined) nif.ipv4 = lif.ipv4;
-      if (lif.ipv6 !== undefined) nif.ipv6 = lif.ipv6;
-      if (link.linkindex !== undefined) nif.linkindex = link.linkindex;
-      if (link.role) nif.role = link.role;
-      if (link.bridge) nif.bridge = link.bridge;
-
-      if (link.ospf) nif.ospf = { ...(link.ospf as JsonObject) };
-      if (link.vlan) nif.vlan = { ...(link.vlan as JsonObject) };
-      if ((link as JsonObject).isis) nif.isis = { ...((link as JsonObject).isis as JsonObject) };
-      if (lif.bgp !== undefined) nif.bgp = structuredClone(lif.bgp) as JsonObject;
-      else if (link.bgp !== undefined) nif.bgp = structuredClone(link.bgp) as JsonObject;
+      if (isVirtual) lif.virtual_interface = true;
 
       node.interfaces = node.interfaces ?? [];
-      node.interfaces.push(nif);
+      node.interfaces.push(ifdata);
+      created.push({ node: nodeName, data: ifdata });
+    }
+
+    // Second pass: neighbor lists from peer interfaces on this link
+    for (const local of created) {
+      local.data.neighbors = [];
+      for (const remote of created) {
+        if (remote === local) continue;
+        const n: Neighbor = { node: remote.node };
+        if (remote.data.ifname !== undefined) n.ifname = remote.data.ifname;
+        if (remote.data.ipv4 !== undefined) n.ipv4 = remote.data.ipv4;
+        if (remote.data.ipv6 !== undefined) n.ipv6 = remote.data.ipv6;
+        local.data.neighbors.push(n);
+      }
     }
   }
 
