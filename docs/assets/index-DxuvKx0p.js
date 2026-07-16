@@ -3798,7 +3798,7 @@ links:
   - [r1, r2]
 `;function Jp(e){const n=new Date(e);if(Number.isNaN(n.getTime()))return e;const t=r=>String(r).padStart(2,"0");return`${n.getUTCFullYear()}-${t(n.getUTCMonth()+1)}-${t(n.getUTCDate())} ${t(n.getUTCHours())}:${t(n.getUTCMinutes())}:${t(n.getUTCSeconds())} UTC`}const pe=document.querySelector("#app");pe.innerHTML=`
   <header>
-    <p class="build-time" title="Build timestamp">Built ${Jp("2026-07-16T22:21:28.841Z")}</p>
+    <p class="build-time" title="Build timestamp">Built ${Jp("2026-07-16T22:22:10.950Z")}</p>
     <h1>netlab.js</h1>
     <p>Load a topology, transform it, inspect JSON and a simple graph.</p>
   </header>
