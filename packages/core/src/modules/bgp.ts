@@ -1,3 +1,4 @@
+import ipaddr from "ipaddr.js";
 import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, JsonValue, Link, Node, Topology, TransformContext } from "../types.js";
 import { getDevice } from "../devices/registry.js";
@@ -158,6 +159,7 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
   bgpTransformCommunityList(node, topology, _ctx);
   processBgpImports(node, _ctx);
   bgpBuildAdvertiseList(node);
+  bgpProcessOriginate(node, topology, _ctx);
   bgpSetOriginateAf(node);
   node.bgp = bgp;
 }
@@ -387,6 +389,60 @@ function bgpBuildAdvertiseList(node: Node): void {
   }
   if (list.length) bgp.advertise = list;
   else delete bgp.advertise;
+}
+
+/** Normalize originated prefixes and create discard routes when the device supports them. */
+function bgpProcessOriginate(node: Node, topology: Topology, ctx: TransformContext): void {
+  const bgp = node.bgp as JsonObject;
+  if (bgp.originate === undefined) return;
+  const values = Array.isArray(bgp.originate) ? bgp.originate : [bgp.originate];
+  const prefixes: JsonObject[] = [];
+  for (const value of values) {
+    let item: JsonValue = value;
+    if (typeof item === "string") {
+      const named = (topology.prefix as JsonObject | undefined)?.[item];
+      if (named !== undefined) item = named;
+      else item = { [item.includes(":") ? "ipv6" : "ipv4"]: item };
+    }
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message: `Invalid BGP originate prefix on ${node.name}`, path: `nodes.${node.name}.bgp.originate` });
+      continue;
+    }
+    const prefix: JsonObject = {};
+    for (const af of ["ipv4", "ipv6"]) {
+      if (item[af] === undefined) continue;
+      const cidr = item[af];
+      try {
+        if (typeof cidr !== "string") throw new Error("Invalid prefix");
+        const [addr] = ipaddr.parseCIDR(cidr);
+        if (addr.kind() !== af) throw new Error("Wrong address family");
+        prefix[af] = networkFromHostCidr(cidr);
+      } catch {
+        ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message: `Invalid ${af} BGP originate prefix ${String(cidr)} on ${node.name}`, path: `nodes.${node.name}.bgp.originate` });
+      }
+    }
+    if (Object.keys(prefix).length) prefixes.push(prefix);
+  }
+  const features = (getDevice(String(node.device)).features ?? {}) as JsonObject;
+  const modern = Boolean((features.bgp as JsonObject | undefined)?.advertise && ((features.routing as JsonObject | undefined)?.static as JsonObject | undefined)?.discard);
+  const advertised = Array.isArray(bgp.advertise) ? bgp.advertise : [];
+  advertised.push(...prefixes);
+  if (advertised.length) bgp.advertise = advertised;
+  if (modern && prefixes.length) {
+    const routing = node.routing && typeof node.routing === "object" && !Array.isArray(node.routing) ? node.routing as JsonObject : {};
+    const routes = Array.isArray(routing.static) ? routing.static : [];
+    routes.push(...prefixes.map(prefix => ({ ...prefix, nexthop: { discard: true } })));
+    routing.static = routes;
+    node.routing = routing;
+    node.module ??= [];
+    if (!node.module.includes("routing")) node.module.push("routing");
+    delete bgp.originate;
+  } else {
+    bgp.originate = prefixes.flatMap(prefix => {
+      if (prefix.ipv6 !== undefined) ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message: `Device ${node.device} on ${node.name} cannot originate IPv6 BGP prefixes` });
+      return typeof prefix.ipv4 === "string" ? [prefix.ipv4] : [];
+    });
+  }
 }
 
 function processBgpImports(node: Node, ctx: TransformContext, topology?: Topology): void {

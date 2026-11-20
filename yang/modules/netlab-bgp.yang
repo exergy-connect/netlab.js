@@ -111,6 +111,14 @@ module netlab-bgp {
       uses bgp-rr-attrs;
       uses bgp-common;
       uses bgp-imports;
+      list originate {
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+      }
+      list advertise {
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+      }
       leaf local_as { type uint32; }
       leaf router_id {
         type string;

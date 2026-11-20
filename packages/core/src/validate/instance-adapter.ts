@@ -196,6 +196,14 @@ function adaptBgp(parent: JsonObject): void {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
   const bgp: JsonObject = { ...raw as JsonObject };
   parent.bgp = bgp;
+  for (const key of ["originate", "advertise"]) {
+    const rawPrefixes = bgp[key];
+    if (rawPrefixes === undefined) continue;
+    const entries = Array.isArray(rawPrefixes) ? rawPrefixes : [rawPrefixes];
+    bgp[key] = entries.map(value => typeof value === "string"
+      ? { [value.includes(":") ? "ipv6" : "ipv4"]: value }
+      : value);
+  }
   for (const key of ["as_list", "confederation", "import"]) {
     const value = bgp[key];
     if (key === "import" && Array.isArray(value)) {
