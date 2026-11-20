@@ -41,6 +41,13 @@ module netlab-evpn {
     }
   }
 
+  grouping evpn-interface-attrs {
+    leaf es { type string; }
+    anydata _esi;
+  }
+  augment "/nt:topology/nt:links/nt:interfaces" { container evpn { uses evpn-interface-attrs; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" { container evpn { uses evpn-interface-attrs; } }
+
   augment "/nt:topology/nt:groups" { container evpn { uses evpn-common; } }
 
   grouping evpn-vrf-attrs {

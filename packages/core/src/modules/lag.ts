@@ -10,6 +10,30 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
   const defaults = (topology.defaults?.lag ?? {}) as JsonObject;
   const pairs = new Map<string, string>();
   const peerIds = new Set<number>();
+  const multihoming = Array.isArray(topology.plugin) && topology.plugin.includes("evpn.multihoming");
+  const topoEvpn = (topology.evpn ?? {}) as JsonObject;
+  const configuredSegments = (topoEvpn.ethernet_segments && typeof topoEvpn.ethernet_segments === "object" && !Array.isArray(topoEvpn.ethernet_segments) ? topoEvpn.ethernet_segments : {}) as JsonObject;
+  const segments: Record<string, JsonObject> = {};
+  const reserved = new Set<string>();
+  for (const [key, value] of Object.entries(configuredSegments)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    segments[key] = { ...value };
+    if (typeof value.id === "string" && /^(?:[0-9a-f]{2}:){9}[0-9a-f]{2}$/i.test(value.id)) {
+      const bytes = value.id.toLowerCase().split(":");
+      reserved.add(bytes.slice(1, 6).join(""));
+      if (bytes[0] === "00" && bytes[1] === "02") reserved.add(bytes.slice(2, 7).join(""));
+    }
+  }
+  let segmentId = 1;
+  const segmentFor = (key: string): JsonObject => {
+    if (segments[key]) return segments[key]!;
+    while (reserved.has(segmentId.toString(16).padStart(10, "0"))) segmentId++;
+    const hex = segmentId.toString(16).padStart(10, "0");
+    reserved.add(hex);
+    segmentId++;
+    const octets = (value: string) => value.match(/../g)!.join(":");
+    return segments[key] = { id: octets(`0002${hex}000000`), _lacp_system_id: octets(`02${hex}`) };
+  };
   for (const link of links) {
     const id = ((link.lag as JsonObject | undefined)?.mlag as JsonObject | undefined)?.peergroup;
     if (typeof id === "number") peerIds.add(id);
@@ -65,19 +89,78 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
     if (!lag || !Array.isArray(lag.members) || (lag.mlag as JsonObject | undefined)?.peergroup) continue;
     const members = normalize(lag);
     if (!members) continue;
+    const endpointData = new Map<string, JsonObject>();
+    const segmentNames = new Map<string, string>();
+    let invalidSegment = false;
+    for (const member of members) for (const end of member.interfaces ?? []) {
+      const node = String(end.node);
+      const evpn = end.evpn as JsonObject | undefined;
+      const es = evpn?.es;
+      if (es !== undefined && (typeof es !== "string" || !es)) { error(`Invalid Ethernet segment on ${node}`); invalidSegment = true; continue; }
+      if (typeof es === "string") {
+        if (!multihoming || !(topology.nodes?.[node]?.module ?? []).includes("evpn")) { error(`ESI-LAG on ${node} requires EVPN and the evpn.multihoming plugin`); invalidSegment = true; }
+        if (segmentNames.has(node) && segmentNames.get(node) !== es) { error(`Conflicting Ethernet segments on ${node}`); invalidSegment = true; }
+        segmentNames.set(node, es);
+      }
+      const previous = endpointData.get(node) ?? {};
+      const setting = end.lag as JsonObject | undefined;
+      const previousLag = previous.lag as JsonObject | undefined;
+      if (previousLag?.lacp_system_id !== undefined && setting?.lacp_system_id !== undefined && previousLag.lacp_system_id !== setting.lacp_system_id) {
+        error(`Conflicting LACP system IDs on ${node}`); invalidSegment = true;
+      }
+      endpointData.set(node, { ...previous, ...(evpn ? { evpn: { ...(previous.evpn as JsonObject ?? {}), ...evpn } } : {}), ...(setting ? { lag: { ...previousLag, ...setting } } : {}) });
+    }
+    if (invalidSegment) continue;
+    const sameSide = (a: string, b: string) => pairs.get(a) === b || (!!segmentNames.get(a) && segmentNames.get(a) === segmentNames.get(b));
     const sides: string[][] = [[String(members[0]!.interfaces![0]!.node)], [String(members[0]!.interfaces![1]!.node)]];
     let valid = true;
     for (const member of members.slice(1)) {
       const [a, b] = member.interfaces!.map(i => String(i.node));
-      const sideOf = (n: string) => sides.findIndex(side => side.includes(n) || (!!pairs.get(n) && side.includes(pairs.get(n)!)));
+      const sideOf = (n: string) => sides.findIndex(side => side.includes(n) || side.some(other => sameSide(n, other)));
       const ai = sideOf(a!), bi = sideOf(b!);
       if (ai < 0 && bi < 0 || ai >= 0 && bi >= 0 && ai === bi) { valid = false; break; }
       const side = ai >= 0 ? ai : 1 - bi;
       if (!sides[side]!.includes(a!)) sides[side]!.push(a!);
       if (!sides[1 - side]!.includes(b!)) sides[1 - side]!.push(b!);
     }
-    if (sides.some(side => side.length > 2 || (side.length === 2 && pairs.get(side[0]!) !== side[1]))) valid = false;
+    if (sides.some(side => side.length > 2 || (side.length === 2 && !sameSide(side[0]!, side[1]!)))) valid = false;
     if (!valid) { error("MLAG members must connect two sides of one or two paired nodes"); continue; }
+    for (const side of sides) {
+      const key = side.map(node => segmentNames.get(node)).find(value => value !== undefined);
+      if (!key) continue;
+      if (side.some(node => segmentNames.get(node) !== key)) {
+        error(`All nodes on an ESI-LAG side must use the same Ethernet segment: ${side.join(", ")}`);
+        invalidSegment = true;
+        continue;
+      }
+      const segment = segmentFor(key);
+      if (!(segment.auto === true || typeof segment.id === "string" && /^(?:[0-9a-f]{2}:){9}[0-9a-f]{2}$/i.test(segment.id))) {
+        error(`Invalid Ethernet segment identifier for ${key}`); invalidSegment = true; continue;
+      }
+      let sideLacp: string | undefined;
+      for (const node of side) {
+        const data = endpointData.get(node)!;
+        const nodeLag = (data.lag ?? {}) as JsonObject;
+        let lacp = nodeLag.lacp_system_id ?? segment._lacp_system_id;
+        if (typeof lacp === "number" && Number.isInteger(lacp) && lacp > 0 && lacp <= 65535) {
+          const hex = lacp.toString(16).padStart(4, "0");
+          lacp = `02${hex}${hex}00`.match(/../g)!.join(":");
+        }
+        if (typeof lacp !== "string" || !/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(lacp)) {
+          error(`ESI-LAG on ${node} requires a valid LACP system ID`); invalidSegment = true; continue;
+        }
+        if (sideLacp !== undefined && sideLacp.toLowerCase() !== lacp.toLowerCase()) {
+          error(`Mismatched LACP system IDs for Ethernet segment ${key}`); invalidSegment = true;
+        }
+        sideLacp = lacp;
+        data.lag = { ...nodeLag, lacp_system_id: lacp };
+        data.evpn = { ...(data.evpn as JsonObject), _esi: structuredClone(segment) };
+        const nodeEvpn = (topology.nodes![node]!.evpn ?? {}) as JsonObject;
+        nodeEvpn.ethernet_segments = { ...(nodeEvpn.ethernet_segments as JsonObject ?? {}), [key]: structuredClone(segment) };
+        topology.nodes![node]!.evpn = nodeEvpn;
+      }
+    }
+    if (invalidSegment) continue;
     const nodes = sides.flat();
     if (nodes.some(n => !(topology.nodes?.[n]?.module ?? []).includes("lag"))) {
       error(`LAG module must be enabled on all endpoints: ${nodes.join(", ")}`);
@@ -89,11 +172,15 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
       const id = typeof lag.ifindex === "number" ? lag.ifindex : Math.max(base, ...side.map(n => nextId.get(n) ?? base));
       for (const node of side) { ids.set(node, id); nextId.set(node, id + 1); }
     }
-    link.interfaces = nodes.map(node => ({ node, lag: { ifindex: ids.get(node)!, lacp: lag.lacp ?? (topology.nodes?.[node]?.lag as JsonObject | undefined)?.lacp ?? "fast", lacp_mode: lag.lacp_mode ?? (topology.nodes?.[node]?.lag as JsonObject | undefined)?.lacp_mode ?? "active", ...(sides.some(side => side.length === 2 && side.includes(node)) ? { _mlag: true } : {}) } }));
+    link.interfaces = nodes.map(node => {
+      const data = endpointData.get(node) ?? {};
+      const isEsi = segmentNames.has(node);
+      return { ...data, node, lag: { ...(data.lag as JsonObject ?? {}), ifindex: ids.get(node)!, lacp: lag.lacp ?? (topology.nodes?.[node]?.lag as JsonObject | undefined)?.lacp ?? "fast", lacp_mode: lag.lacp_mode ?? (topology.nodes?.[node]?.lag as JsonObject | undefined)?.lacp_mode ?? "active", ...(sides.some(side => side.length === 2 && side.includes(node)) && !isEsi ? { _mlag: true } : {}) } };
+    });
     link.type = "lag";
     delete lag.members;
     for (const member of members) {
-      const physical: Link = { interfaces: member.interfaces ?? [], type: "p2p", prefix: false as never, linkindex: links.length + 1, lag: { _parentindex: link.linkindex ?? 0 } };
+      const physical: Link = { interfaces: (member.interfaces ?? []).map(({ evpn: _evpn, lag: _lag, ...end }) => end), type: "p2p", prefix: false as never, linkindex: links.length + 1, lag: { _parentindex: link.linkindex ?? 0 } };
       if (link.mtu !== undefined) physical.mtu = link.mtu;
       links.push(physical);
     }

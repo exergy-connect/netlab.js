@@ -8,6 +8,7 @@ module netlab-lag {
   grouping attributes {
     leaf ifindex { type uint32; }
     leaf lacp { type enumeration { enum off; enum slow; enum fast; } }
+    leaf lacp_system_id { type union { type uint16; type string; } }
     leaf lacp_mode { type enumeration { enum active; enum passive; } }
     leaf mode { type string; }
     leaf parent { type string; }
