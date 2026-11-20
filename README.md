@@ -142,6 +142,20 @@ it locally with `npm run build:action`. The runner is at
 variables used by the action. The reusable action runs the checked-in bundle. Rebuild and commit the bundle
 when changing its source or dependencies.
 
+## Fabric expansion (partial)
+
+A flat leaf/spine fabric can be declared with `fabric.leafs`, `fabric.spines`,
+optional `fabric.leaf` and `fabric.spine` node attributes, and an IPv4
+`fabric.link.prefix` pool and `fabric.link.subnet` length. The expansion creates
+all leaf-to-spine links before normal group and addressing transforms. Names
+support `{count}` and zero-padded forms such as `{count:02d}`. Authored nodes
+and links are retained. `module: [fabric]` is accepted as an expansion marker.
+
+This is not yet equivalent to lab.net's fabric module: pods, instances, rails,
+tenants, clients, IPv6, dual loopbacks, topology-aware MAC assignment, design
+references, and arithmetic templates are not implemented. Unsupported options
+produce diagnostics; callers must check them before using the result.
+
 ## Normalized core YANG model
 
 [`yang/netlab.js.yang`](yang/netlab.js.yang) defines a strict core subset of the
