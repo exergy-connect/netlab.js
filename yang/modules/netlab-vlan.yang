@@ -46,7 +46,6 @@ module netlab-vlan {
       description "OSPF settings for VLAN interfaces.";
     }
     leaf role { type string; }
-    anydata gateway;
     leaf name {
       type string;
     }

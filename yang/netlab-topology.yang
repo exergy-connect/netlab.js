@@ -90,7 +90,6 @@ module netlab-topology {
       }
     }
 
-    anydata gateway;
     anydata routing {
       description "Global routing policies, filters, and static route lists.";
     }
@@ -144,7 +143,6 @@ module netlab-topology {
       anydata config {
         description "Inline config templates (list or dict; files plugin).";
       }
-      anydata gateway;
       anydata routing {
         description "Node routing policies, filters, and static routes.";
       }
@@ -199,7 +197,6 @@ module netlab-topology {
       }
       uses ntype:af-flags;
       list interfaces {
-        anydata gateway;
         key "ifindex";
         uses if-identity;
         uses ipv4-ipv6;
@@ -246,7 +243,6 @@ module netlab-topology {
     }
 
     list links {
-      anydata gateway;
       key "linkindex";
       leaf linkindex {
         type uint32;
@@ -306,7 +302,6 @@ module netlab-topology {
         }
       }
       list interfaces {
-        anydata gateway;
         key "node";
         leaf node {
           type leafref {
