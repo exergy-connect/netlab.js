@@ -479,3 +479,66 @@ links: [r1-r2]
   assert.equal(topology.nodes!.r1!.interfaces![0]!.bgp, undefined);
   assert.equal(topology.nodes!.r2!.interfaces![0]!.bgp, undefined);
 });
+
+it("assigns a shared anycast gateway to VLAN SVIs and hosts", () => {
+  const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+groups:
+  _auto_create: true
+  hosts: { members: [h1, h2], device: linux }
+  pe: { members: [s1, s2], module: [vlan, gateway] }
+gateway.protocol: anycast
+vlans:
+  red: { role: external, gateway: true, links: [s1-h1, s2-h2] }
+`));
+  assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+  for (const name of ["h1", "h2"]) {
+    assert.equal((topology.nodes![name]!.interfaces![0]!.gateway as { ipv4: string }).ipv4, "172.16.0.254");
+  }
+  for (const name of ["s1", "s2"]) {
+    const svi = topology.nodes![name]!.interfaces!.find(i => i.type === "svi")!;
+    const gateway = svi.gateway as { protocol: string; ipv4: string };
+    assert.equal(gateway.protocol, "anycast");
+    assert.equal(gateway.ipv4, "172.16.0.254/24");
+  }
+});
+
+it("computes VRRP virtual MACs and link-local addresses while retaining unicast addresses", () => {
+  const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+module: [gateway]
+gateway.protocol: vrrp
+gateway.vrrp.group: 42
+nodes:
+  r1:
+    gateway.vrrp.priority: 120
+  r2:
+links:
+  - interfaces: [r1, r2]
+    prefix: { ipv4: 192.0.2.0/24, ipv6: '2001:db8::/64' }
+    gateway: true
+`));
+  assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+  const intf = topology.nodes!.r1!.interfaces![0]!;
+  assert.ok(intf.ipv4);
+  const gateway = intf.gateway as { ipv4: string; ipv6: string; anycast?: unknown; vrrp: { group: number; priority: number; mac: { ipv4: string; ipv6: string }; lla: string } };
+  assert.equal(gateway.ipv4, "192.0.2.254/24");
+  assert.equal(gateway.vrrp.group, 42);
+  assert.equal(gateway.vrrp.priority, 120);
+  assert.deepEqual(gateway.vrrp.mac, { ipv4: "00:00:5e:00:01:2a", ipv6: "00:00:5e:00:02:2a" });
+  assert.equal(gateway.vrrp.lla, "fe80::200:5eff:fe00:022a");
+  assert.equal(gateway.anycast, undefined);
+});
+
+it("rejects invalid VRRP groups", () => {
+  const { diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+module: [gateway]
+gateway: { protocol: vrrp, vrrp: { group: 256 } }
+nodes: [r1, r2]
+links:
+  - interfaces: [r1, r2]
+    gateway: true
+`));
+  assert.ok(diagnostics.list().some(d => d.module === "gateway" && d.message.includes("VRRP group")));
+});

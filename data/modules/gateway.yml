@@ -1,0 +1,10 @@
+transform_after: [ vlan, vrf, ospf, isis ]
+config_after: [ vlan, vrf ]
+id: -2
+protocol: anycast
+anycast:
+  mac: 0200.cafe.00ff
+  unicast: true
+vrrp:
+  group: 1
+no_propagate: [ id, protocol ]
