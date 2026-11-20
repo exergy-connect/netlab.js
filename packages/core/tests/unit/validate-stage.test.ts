@@ -188,3 +188,75 @@ links: [r1-r2]
   assert.equal(invalid.stages.user_input, false);
   assert.ok(invalid.diagnostics.list().some(d => d.message.includes("netlab_phy_control")));
 });
+
+it("validates typed VRF settings, loopbacks, BGP and group definitions", () => {
+  const topology = {
+    nodes: { r1: { name: "r1", device: "none", vrf: { as: 65000, loopback: true }, vrfs: {
+      red: { loopback: "192.0.2.1/32", bgp: { router_id: "192.0.2.1", import: ["connected"] } },
+      blue: { loopback: { ipv6: "2001:db8::1/128" }, bgp: false },
+    } } },
+    groups: { routers: { members: ["r1"], vrfs: { green: { loopback: true, bgp: { as: 65001 } } } } },
+    vrfs: { red: { loopback: null } }, links: [],
+  } as unknown as Topology;
+  const before = structuredClone(topology);
+  const result = validateAt(topology, "user_input", { yangDir });
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  delete topology.stage;
+  assert.deepEqual(topology, before);
+
+  for (const invalid of [
+    { vrf: { as: "bad" } },
+    { vrfs: { red: { loopback: "not-a-prefix" } } },
+    { vrfs: { red: { loopback: { ipv4: 42 } } } },
+    { vrfs: { red: { bgp: { as: "bad" } } } },
+    { vrfs: { red: { bgp: { unexpected: true } } } },
+  ]) {
+    const candidate = { nodes: { r1: { name: "r1", device: "none", ...invalid } }, links: [] } as unknown as Topology;
+    assert.equal(validateAt(candidate, "user_input", { yangDir }).ok, false, JSON.stringify(invalid));
+  }
+  const invalidGroup = { nodes: {}, links: [], groups: { routers: { vrfs: { red: { bgp: { as: "bad" } } } } } } as unknown as Topology;
+  assert.equal(validateAt(invalidGroup, "user_input", { yangDir }).ok, false);
+});
+
+it("resolves VRF references against global and relevant node definitions", () => {
+  const topology = {
+    nodes: {
+      r1: { name: "r1", device: "none", vrfs: { local: {} }, interfaces: [{ ifindex: 1, vrf: "local", neighbors: [{ node: "r2", vrf: "remote" }] }], vlans: { red: { vrf: "local" } } },
+      r2: { name: "r2", device: "none", vrfs: { remote: {} } },
+      r3: { name: "r3", device: "none", vrfs: { unrelated: {} } },
+    },
+    vrfs: { global: {} }, vlans: { blue: { vrf: "global" } },
+    links: [{ vrf: "local", interfaces: [{ node: "r1" }, { node: "r2" }] }],
+  } as unknown as Topology;
+  const valid = validateAt(topology, "user_input", { yangDir });
+  assert.equal(valid.ok, true, JSON.stringify(valid.errors));
+  const invalidCases: Array<(value: any) => void> = [
+    v => { v.links[0].vrf = "unrelated"; },
+    v => { v.nodes.r1.interfaces[0].vrf = "unrelated"; },
+    v => { v.nodes.r1.interfaces[0].neighbors[0].vrf = "unrelated"; },
+    v => { v.nodes.r1.vlans.red.vrf = "unrelated"; },
+    v => { v.vlans.blue.vrf = "local"; },
+    v => { v.links[0].vrf = "missing"; },
+  ];
+  for (const mutate of invalidCases) {
+    const invalid = structuredClone(topology);
+    mutate(invalid);
+    const result = validateAt(invalid, "user_input", { yangDir });
+    assert.equal(result.ok, false, JSON.stringify(invalid));
+    assert.ok(result.errors.some(error => error.includes("VRF must be defined")), JSON.stringify(result.errors));
+  }
+});
+
+it("validates structured route distinguishers and numeric offsets", () => {
+  const topology = (rd: unknown) => ({ nodes: {}, links: [], vrfs: { red: { rd } } }) as unknown as Topology;
+  for (const rd of ["65000:42", "192.0.2.1:100", "4200000000:123", 42, null]) {
+    const result = validateAt(topology(rd), "user_input", { yangDir });
+    assert.equal(result.ok, true, `${JSON.stringify(rd)}: ${JSON.stringify(result.errors)}`);
+  }
+  for (const rd of ["bad", "65000:x", "256.0.2.1:3", "1:2:3", -1, true]) {
+    const result = validateAt(topology(rd), "user_input", { yangDir });
+    assert.equal(result.ok, false, JSON.stringify(rd));
+  }
+  const evpn = { nodes: {}, links: [], vlans: { red: { evpn: { rd: "bad" } } } } as unknown as Topology;
+  assert.equal(validateAt(evpn, "user_input", { yangDir }).ok, false);
+});

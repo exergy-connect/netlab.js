@@ -7,6 +7,8 @@ module netlab-vrf {
     prefix nt;
   }
 
+  import netlab-types { prefix ntype; }
+
   organization "Exergy Connect";
   description "VRF module augmentations.";
 
@@ -14,17 +16,40 @@ module netlab-vrf {
     description "vrf-definition grouping for global/node VRF lists.";
   }
 
+  typedef route-distinguisher {
+    description
+      "An ASN:number or IPv4-address:number route distinguisher, or a numeric
+       offset accepted by Netlab. Numeric component widths are not constrained
+       according to RD encoding type.";
+    type union {
+      type uint32;
+      type string {
+        pattern '([0-9]+|(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}'
+              + '([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])):[0-9]+';
+      }
+    }
+  }
+
+  grouping vrf-reference {
+    description "Name of the VRF associated with an object.";
+    leaf vrf { type string; }
+  }
+
   grouping vrf-definition {
     description "Shared VRF object fields (global and per-node).";
-    anydata bgp;
-    anydata loopback {
-      description "VRF loopback accepts a boolean, prefix, or interface attributes.";
+    container loopback {
+      description "Boolean or prefix shorthand is adapted to this container for validation.";
+      leaf enabled { type boolean; }
+      leaf ipv4 { type ntype:ipv4-address-or-prefix; }
+      leaf ipv6 { type ntype:ipv6-address-or-prefix; }
+      leaf ifname { type string; }
+      leaf ifindex { type uint32; }
     }
     leaf name {
       type string;
     }
     leaf rd {
-      type string;
+      type route-distinguisher;
     }
     leaf-list import {
       type string;
@@ -42,8 +67,9 @@ module netlab-vrf {
   }
 
   augment "/nt:topology/nt:nodes" {
-    anydata vrf {
-      description "Node-level VRF module settings.";
+    container vrf {
+      leaf as { type uint32; }
+      leaf loopback { type boolean; }
     }
     list vrfs {
       key "name";
@@ -51,11 +77,38 @@ module netlab-vrf {
     }
   }
 
-  augment "/nt:topology/nt:groups" { anydata vrfs; }
-
-  augment "/nt:topology/nt:links" {
-    leaf vrf { type string; }
+  augment "/nt:topology/nt:groups" {
+    container vrf { leaf as { type uint32; } leaf loopback { type boolean; } }
+    list vrfs { key "name"; uses vrf-definition; }
   }
 
-  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" { leaf vrf { type string; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    uses vrf-reference {
+      refine vrf {
+        must ". = /topology/vrfs/name or . = ../../vrfs/name" {
+          error-message "VRF must be defined globally or on the interface node.";
+        }
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:links" {
+    uses vrf-reference {
+      refine vrf {
+        must ". = /topology/vrfs/name or . = /topology/nodes[name = current()/../interfaces/node]/vrfs/name" {
+          error-message "VRF must be defined globally or on a link endpoint.";
+        }
+      }
+    }
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" {
+    uses vrf-reference {
+      refine vrf {
+        must ". = /topology/vrfs/name or . = /topology/nodes[name = current()/../node]/vrfs/name" {
+          error-message "VRF must be defined globally or on the neighbor node.";
+        }
+      }
+    }
+  }
 }

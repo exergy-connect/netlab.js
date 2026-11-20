@@ -7,6 +7,8 @@ module netlab-bgp {
     prefix nt;
   }
 
+  import netlab-vrf { prefix vrf; }
+
   organization "Exergy Connect";
   description "BGP module augmentations.";
 
@@ -76,6 +78,20 @@ module netlab-bgp {
       type boolean;
     }
   }
+
+  grouping vrf-bgp-attrs {
+    leaf enabled { type boolean; }
+    leaf as { type uint32; }
+    leaf local_as { type uint32; }
+    leaf router_id { type string; }
+    uses bgp-imports;
+    list originate { leaf ipv4 { type string; } leaf ipv6 { type string; } }
+    list advertise { leaf ipv4 { type string; } leaf ipv6 { type string; } }
+  }
+
+  augment "/nt:topology/vrf:vrfs" { container bgp { uses vrf-bgp-attrs; } }
+  augment "/nt:topology/nt:nodes/vrf:vrfs" { container bgp { uses vrf-bgp-attrs; } }
+  augment "/nt:topology/nt:groups/vrf:vrfs" { container bgp { uses vrf-bgp-attrs; } }
 
   augment "/nt:topology" {
     container bgp {

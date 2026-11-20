@@ -29,7 +29,7 @@ export function toYangInstance(topology: Topology): JsonObject {
       n.vlans = dictToNamedList(n.vlans);
     }
     if (n.vrfs && typeof n.vrfs === "object" && !Array.isArray(n.vrfs)) {
-      n.vrfs = dictToNamedList(n.vrfs);
+      n.vrfs = dictToNamedList(n.vrfs, true);
     }
     dequalifyInternalKeys(n);
     return n;
@@ -59,9 +59,12 @@ export function toYangInstance(topology: Topology): JsonObject {
 
   const groups = topology.groups
     ? Object.entries(topology.groups).map(([name, g]) => {
-        const group = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
+        const group: JsonObject = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
         adaptMpls(group);
         adaptGateway(group);
+        if (group.vrfs && typeof group.vrfs === "object" && !Array.isArray(group.vrfs)) {
+          group.vrfs = dictToNamedList(group.vrfs, true);
+        }
         return group;
       })
     : undefined;
@@ -101,7 +104,7 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.vxlan) topoObj.vxlan = topology.vxlan;
   if (topology.evpn) topoObj.evpn = topology.evpn;
   if (topology.vlans) topoObj.vlans = dictToNamedList(topology.vlans);
-  if (topology.vrfs) topoObj.vrfs = dictToNamedList(topology.vrfs);
+  if (topology.vrfs) topoObj.vrfs = dictToNamedList(topology.vrfs, true);
 
   const instance: JsonObject = { topology: topoObj };
 
@@ -114,16 +117,18 @@ export function toYangInstance(topology: Topology): JsonObject {
   return instance;
 }
 
-function dictToNamedList(d: JsonValue): JsonObject[] {
+function dictToNamedList(d: JsonValue, vrf = false): JsonObject[] {
   if (!d || typeof d !== "object" || Array.isArray(d)) return [];
   return Object.entries(d as JsonObject).map(([name, v]) => ({
     ...(typeof v === "object" && v && !Array.isArray(v) ? (v as JsonObject) : {}),
     name,
   })).map((item: JsonObject) => {
     adaptGateway(item);
+    if (vrf) adaptVrfDefinition(item);
     const evpn = item.evpn;
     if (evpn && typeof evpn === "object" && !Array.isArray(evpn)) {
       item.evpn = { ...evpn };
+      if ((item.evpn as JsonObject).rd === null) delete (item.evpn as JsonObject).rd;
       for (const key of ["import", "export"]) {
         const value = (item.evpn as JsonObject)[key];
         if (typeof value === "string") (item.evpn as JsonObject)[key] = [value];
@@ -131,6 +136,19 @@ function dictToNamedList(d: JsonValue): JsonObject[] {
     }
     return item;
   });
+}
+
+/** Adapt VRF shorthand only in the validation copy. */
+function adaptVrfDefinition(item: JsonObject): void {
+  if (item.rd === null) delete item.rd;
+  if (item.loopback === null) delete item.loopback;
+  else if (typeof item.loopback === "boolean") item.loopback = { enabled: item.loopback };
+  else if (typeof item.loopback === "string") {
+    const value = item.loopback;
+    item.loopback = { [value.includes(":") ? "ipv6" : "ipv4"]: value };
+  }
+  if (typeof item.bgp === "boolean") item.bgp = { enabled: item.bgp };
+  adaptBgp(item);
 }
 
 function adaptAddressing(addressing: JsonValue | undefined): JsonObject | undefined {
