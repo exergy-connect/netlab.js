@@ -9,8 +9,9 @@ module netlab.js {
   description
     "Strict core subset of a normalized netlab.js topology. This module
      describes the transformed node and link graph, not input shorthand or
-     every attribute retained by the full export. Protocol, device-specific,
-     defaults, group, and other extension data are outside this subset.
+     every attribute retained by the full export. BGP session and interface
+     attributes are modeled; other protocol, device-specific,
+     defaults, group, and extension data are outside this subset.
 
      The machine export represents nodes as a list with a name key. Links,
      interfaces, and neighbors are arrays. The export has a top-level
@@ -53,11 +54,116 @@ module netlab.js {
     }
   }
 
+  typedef ipv4-address {
+    type string {
+      pattern '(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}'
+            + '([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])';
+    }
+  }
+
+  typedef ipv6-address {
+    type string {
+      pattern '([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){6}(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::|::[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::|::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}:(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])';
+    }
+  }
+
+  typedef bgp-community {
+    type enumeration { enum standard; enum extended; enum large; enum 2octet; }
+  }
+
+  typedef bgp-session-type {
+    type enumeration { enum ibgp; enum ebgp; enum localas_ibgp; enum confed_ebgp; }
+  }
+
+  grouping bgp-session-selection {
+    container sessions {
+      leaf-list ipv4 { type bgp-session-type; }
+      leaf-list ipv6 { type bgp-session-type; }
+    }
+    container activate {
+      leaf-list ipv4 { type bgp-session-type; }
+      leaf-list ipv6 { type bgp-session-type; }
+    }
+  }
+
+  grouping bgp-community-attrs {
+    container community {
+      leaf-list ebgp { type bgp-community; }
+      leaf-list ibgp { type bgp-community; }
+      leaf-list localas_ibgp { type bgp-community; }
+      leaf-list confed_ebgp { type bgp-community; }
+    }
+  }
+
+  grouping bgp-imports {
+    list import {
+      key "protocol";
+      leaf protocol { type enumeration { enum bgp; enum connected; enum eigrp; enum isis; enum ospf; enum ripv2; enum rip; enum static; enum vrf; } }
+      leaf enabled { type boolean; }
+      leaf auto { type boolean; }
+      leaf policy { type string { length "1..max"; } }
+    }
+  }
+
+  grouping bgp-vrf-attrs {
+    leaf router_id { type ipv4-address; }
+    list advertise { uses addresses; }
+    list originate { uses addresses; }
+    uses bgp-imports;
+  }
+
+  grouping bgp-vrf-list {
+    list vrfs {
+      key "name";
+      leaf name { type string { length "1..max"; } }
+      leaf rd { type string; }
+      leaf-list import { type string; }
+      leaf-list export { type string; }
+      leaf id { type uint32; }
+      container bgp { uses bgp-vrf-attrs; }
+    }
+  }
+
+  grouping bgp-interface-attrs {
+    leaf local_as { type uint32 { range "1..max"; } }
+    leaf replace_global_as { type boolean; }
+    leaf advertise { type boolean; }
+    leaf default_originate { type boolean; }
+  }
+
   container topology {
+    config false;
     description "A normalized topology, projected onto the modeled core.";
     leaf name { type string { length "1..max"; } mandatory true; }
     leaf provider { type ntype:provider-name; mandatory true; }
     leaf-list module { type string { length "1..max"; } }
+    container bgp {
+      leaf as { type uint32 { range "1..max"; } }
+      leaf advertise_loopback { type boolean; }
+      leaf next_hop_self { type boolean; }
+      leaf rr_cluster_id { type ipv4-address; }
+      leaf rr_mesh { type boolean; }
+      leaf replace_global_as { type boolean; }
+      leaf ebgp_role { type string; }
+      leaf-list advertise_roles { type string; }
+      uses bgp-session-selection;
+      uses bgp-community-attrs;
+      leaf-list rr_list { type ntype:node-id-ref; }
+      list as_list {
+        key "asn";
+        leaf asn { type uint32 { range "1..max"; } }
+        leaf name { type string; }
+        leaf-list members { type ntype:node-id-ref; }
+        leaf-list rr { type ntype:node-id-ref; }
+      }
+      list confederation {
+        key "asn";
+        leaf asn { type uint32 { range "1..max"; } }
+        leaf-list members { type uint32 { range "1..max"; } }
+      }
+    }
+
+    uses bgp-vrf-list;
 
     list nodes {
       key "name";
@@ -68,6 +174,54 @@ module netlab.js {
       leaf role { type ntype:node-role; mandatory true; }
       leaf provider { type ntype:provider-name; }
       leaf-list module { type string { length "1..max"; } }
+      container bgp {
+        leaf as { type uint32 { range "1..max"; } }
+        leaf local_as { type uint32 { range "1..max"; } }
+        leaf replace_global_as { type boolean; }
+        leaf router_id { type ipv4-address; }
+        container confederation {
+          leaf as { type uint32 { range "1..max"; } }
+          leaf-list peers { type uint32 { range "1..max"; } }
+        }
+        leaf rr { type boolean; }
+        leaf rr_cluster_id { type ipv4-address; }
+        leaf rr_mesh { type boolean; }
+        leaf advertise_loopback { type boolean; }
+        leaf next_hop_self { type boolean; }
+        leaf ipv4 { type boolean; }
+        leaf ipv6 { type boolean; }
+        uses bgp-community-attrs;
+        uses bgp-session-selection;
+        list advertise { uses addresses; }
+        list originate { uses addresses; }
+        uses bgp-imports;
+        list neighbors {
+          description "BGP sessions; multiple sessions can share a peer name.";
+          leaf name { type ntype:node-id-ref; }
+          leaf as { type uint32 { range "1..max"; } }
+          leaf local_as { type uint32 { range "1..max"; } }
+          leaf type { type bgp-session-type; }
+          leaf ifindex { type uint32; }
+          leaf ipv4 { type union { type ipv4-address; type boolean; } }
+          leaf ipv6 { type union { type ipv6-address; type boolean; } }
+          leaf evpn { type string; }
+          leaf rr { type boolean; }
+          leaf rr_client { type boolean; }
+          leaf next_hop_self { type string; }
+          container _source_intf {
+            uses interface-identity;
+            uses addresses;
+            leaf type { type string; }
+            leaf virtual_interface { type boolean; }
+            leaf pool { type string; }
+            uses neighbor-list;
+            container bgp { uses bgp-interface-attrs; }
+          }
+          container activate { leaf ipv4 { type boolean; } leaf ipv6 { type boolean; } }
+        }
+      }
+      uses bgp-vrf-list;
+      container vrf { leaf as { type uint32; } }
       container mgmt {
         leaf ifname { type string { length "1..max"; } }
         leaf ipv4 { type string; }
@@ -79,6 +233,7 @@ module netlab.js {
         leaf ipv6 { type boolean; }
       }
       container loopback {
+        container bgp { uses bgp-interface-attrs; }
         uses interface-identity;
         uses addresses;
         leaf type { type string; }
@@ -90,6 +245,7 @@ module netlab.js {
         key "ifindex";
         uses interface-identity;
         uses addresses;
+        container bgp { uses bgp-interface-attrs; }
         leaf linkindex { type uint32; }
         leaf type { type string; }
         leaf role { type string; }
@@ -118,6 +274,7 @@ module netlab.js {
       leaf parentindex { type uint32; }
       leaf bandwidth { type uint64; }
       leaf mtu { type uint16 { range "64..9216"; } }
+      container bgp { uses bgp-interface-attrs; }
       container prefix {
         uses addresses;
         leaf allocation { type ntype:allocation-mode; }
@@ -129,6 +286,7 @@ module netlab.js {
         }
         uses interface-identity;
         uses addresses;
+        container bgp { uses bgp-interface-attrs; }
       }
     }
   }

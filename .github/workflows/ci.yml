@@ -57,6 +57,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Test topology comparison
+        run: node --test tests/action/compare-topologies.test.mjs
+
       - name: Test topology action runner
         run: node --test tests/action/normalize.test.mjs
 

@@ -1,0 +1,61 @@
+name: Compare with Netlab
+
+on:
+  workflow_dispatch:
+    inputs:
+      topology:
+        description: Repository topology path or self-contained HTTP(S) URL
+        required: true
+        default: tests/fixtures/bgp-ibgp.yml
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm run build
+          python -m pip install networklab
+      - name: Resolve topology
+        env:
+          TOPOLOGY_INPUT: ${{ inputs.topology }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/netlab-comparison"
+          if [[ "$TOPOLOGY_INPUT" == https://* || "$TOPOLOGY_INPUT" == http://* ]]; then
+            curl --fail --location --silent --show-error -- "$TOPOLOGY_INPUT" -o "$RUNNER_TEMP/netlab-comparison/input.yml"
+            printf 'TOPOLOGY_PATH=%s\n' "$RUNNER_TEMP/netlab-comparison/input.yml" >> "$GITHUB_ENV"
+          else
+            test -f "$TOPOLOGY_INPUT"
+            printf 'TOPOLOGY_PATH=%s\n' "$(realpath "$TOPOLOGY_INPUT")" >> "$GITHUB_ENV"
+          fi
+      - name: Generate Netlab output
+        run: netlab create -o "json=$RUNNER_TEMP/netlab-comparison/netlab.json" "$TOPOLOGY_PATH"
+      - name: Generate netlab.js output
+        env:
+          NETLAB_INPUT: ${{ env.TOPOLOGY_PATH }}
+          NETLAB_OUTPUT: ${{ runner.temp }}/netlab-comparison/netlab-js.json
+        run: node tools/normalize-topology.mjs
+      - name: Compare transformed outputs
+        run: |
+          node tools/compare-topologies.mjs "$RUNNER_TEMP/netlab-comparison/netlab.json" "$RUNNER_TEMP/netlab-comparison/netlab-js.json" "$RUNNER_TEMP/netlab-comparison/netlab-normalized.json" "$RUNNER_TEMP/netlab-comparison/netlab-js-normalized.json"
+          diff -u --label netlab --label netlab.js "$RUNNER_TEMP/netlab-comparison/netlab-normalized.json" "$RUNNER_TEMP/netlab-comparison/netlab-js-normalized.json" | tee "$RUNNER_TEMP/netlab-comparison/diff.txt"
+      - name: Upload outputs and comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlab-comparison
+          path: ${{ runner.temp }}/netlab-comparison/
+          if-no-files-found: warn

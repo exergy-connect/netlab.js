@@ -22,6 +22,8 @@ import {
 import { selectProvider, providerPreTransform, providerPostTransform } from "../provider/clab.js";
 import { processQuirks } from "../devices/quirks.js";
 import { applyDefaults } from "../load/parse.js";
+import { processRoutingPolicies } from "../modules/routing.js";
+import { processBgpAsList, processBgpVrfImports } from "../modules/bgp.js";
 import { expandVrfLinks } from "../modules/vrf.js";
 
 export type PipelineHooks = {
@@ -76,6 +78,7 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
     }
   }
 
+  processBgpAsList(topology, ctx);
   mergeModuleParams(topology);
   createBgpAutogroups(topology);
   checkUnknownModules(topology, diagnostics);
@@ -101,6 +104,8 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   runModuleHook("module_post_transform", topology, ctx);
   copyNodeModuleAttrsToInterfaces(topology);
   runModuleHook("node_post_transform", topology, ctx);
+  processBgpVrfImports(topology, ctx);
+  processRoutingPolicies(topology, ctx);
 
   hooks.afterAddressed?.(topology, ctx);
 

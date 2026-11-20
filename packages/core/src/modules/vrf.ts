@@ -1,5 +1,6 @@
 import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
+import { deepMerge } from "../data/merge.js";
 import { adjustLinkObject, getNextLinkindex } from "../links/links.js";
 import { INTERNAL_LINKNAME } from "../types.js";
 
@@ -48,7 +49,7 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
     ...((node.vrfs as Record<string, JsonObject>) ?? {}),
   };
   for (const name of used) {
-    if (!nodeVrfs[name] && global[name]) nodeVrfs[name] = { ...global[name] };
+    if (global[name]) nodeVrfs[name] = deepMerge(global[name]!, nodeVrfs[name] ?? {});
   }
   node.vrfs = nodeVrfs;
 }
