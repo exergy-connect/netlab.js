@@ -48,15 +48,11 @@ export function toYangInstance(topology: Topology): JsonObject {
     }
     if (l.ospf === false || l.ospf === true) delete l.ospf;
     if (l.linkindex === undefined) l.linkindex = idx + 1;
-    // Runtime uses qualified internal names; map onto host-module leaves for xYang
-    const qName = l[INTERNAL_LINKNAME];
-    if (typeof qName === "string") {
-      l._linkname = qName;
-      delete l[INTERNAL_LINKNAME];
-    } else if (typeof l._linkname === "string") {
-      // already local
+    // Keep the diagnostic link name in the internal module namespace.
+    if (typeof l._linkname === "string" && l[INTERNAL_LINKNAME] === undefined) {
+      l[INTERNAL_LINKNAME] = l._linkname;
     }
-    dequalifyInternalKeys(l);
+    delete l._linkname;
     return l;
   });
 

@@ -247,16 +247,6 @@ module netlab-topology {
       leaf linkindex {
         type uint32;
       }
-      leaf _linkname {
-        type string;
-        description
-          "Internal diagnostic name. Runtime stores netlab-internal:_linkname;
-           the validate adapter maps that qualified member onto this leaf.";
-      }
-      must "/topology/stage = 'user_input' or _linkname" {
-        error-message "netlab-internal:_linkname is required after user_input stage";
-        error-app-tag "MISSING";
-      }
       leaf type {
         type ntype:link-type;
       }
