@@ -79,7 +79,10 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.name !== undefined) topoObj.name = topology.name;
   if (topology.provider !== undefined) topoObj.provider = topology.provider;
   if (topology.module !== undefined) topoObj.module = topology.module;
-  if (topology.defaults !== undefined) topoObj.defaults = topology.defaults;
+  if (topology.defaults && typeof topology.defaults === "object" && !Array.isArray(topology.defaults)) {
+    const device = (topology.defaults as JsonObject).device;
+    if (device !== undefined) topoObj.defaults = { device };
+  }
   if (groups) topoObj.groups = groups;
   if (addressing) topoObj.addressing = addressing;
   if (topology.mpls !== undefined) {
