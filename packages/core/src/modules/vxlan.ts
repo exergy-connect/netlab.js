@@ -67,9 +67,8 @@ export function module_pre_transform(topology: Topology, _ctx: TransformContext)
   topology.vxlan = vxlan;
 }
 
-function loopbackAddress(node: Node, af: "ipv4" | "ipv6"): string | undefined {
-  const lb = node.loopback as JsonObject | undefined;
-  const raw = lb?.[af];
+function interfaceAddress(intf: JsonObject | undefined, af: "ipv4" | "ipv6"): string | undefined {
+  const raw = intf?.[af];
   if (typeof raw !== "string") return undefined;
   return raw.split("/")[0];
 }
@@ -118,20 +117,34 @@ export function module_post_transform(topology: Topology, ctx: TransformContext)
       topoVxlan.use_v6_vtep ?? nv.use_v6_vtep ?? vxlanDefaults(topology).use_v6_vtep,
     );
     const af: "ipv4" | "ipv6" = useV6 ? "ipv6" : "ipv4";
-    const vtep = loopbackAddress(node, af);
+    const selected = (node.interfaces ?? []).find(
+      (intf) => intf.type === "loopback" && (intf.vxlan as JsonObject | undefined)?.vtep === true,
+    ) ?? node.loopback;
+    const vtep = interfaceAddress(selected as JsonObject | undefined, af);
     if (!vtep) {
       ctx.diagnostics.error({
         code: "MISSING",
         category: "MISSING",
         module: "vxlan",
-        message: `VXLAN module needs an ${af.toUpperCase()} address on loopback of ${node.name}`,
+        message: `VXLAN module needs an ${af.toUpperCase()} address on interface ${selected?.ifname ?? "loopback"} of ${node.name}`,
         path: `nodes.${node.name}.loopback.${af}`,
       });
     } else {
       nv.vtep = vtep;
-      nv.vtep_interface = String((node.loopback as JsonObject | undefined)?.ifname ?? "lo");
+      nv.vtep_interface = String(selected?.ifname ?? "lo");
       nv.transport = af;
     }
+
+    node.vxlan = nv;
+  }
+
+  // VTEP addresses and VLANs must be assigned on all nodes before building peer lists.
+  for (const node of Object.values(topology.nodes ?? {})) {
+    if (!(node.module ?? []).includes("vxlan")) continue;
+    const nv = node.vxlan as JsonObject;
+    const names = (nv.vlans as string[]) ?? [];
+    const nodeVlans = (node.vlans as Record<string, JsonObject>) ?? {};
+    const vtep = nv.vtep;
 
     // Static flooding VTEP lists (skipped when flooding=evpn)
     if (String(nv.flooding) === "static") {

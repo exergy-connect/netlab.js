@@ -49,6 +49,20 @@ module netlab-vxlan {
     }
   }
 
+  grouping vxlan-link-attrs {
+    container vxlan {
+      leaf vtep { type boolean; }
+    }
+  }
+
+  augment "/nt:topology/nt:links" {
+    uses vxlan-link-attrs;
+  }
+
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    uses vxlan-link-attrs;
+  }
+
   augment "/nt:topology/nt:vlans" {
     uses vxlan-vlan-attrs;
   }
