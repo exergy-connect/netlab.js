@@ -77,3 +77,14 @@ describe("addressing IPAM", () => {
     assert.equal(byNode.r2, "10.1.0.2/30");
   });
 });
+
+it("embeds all vendored Netlab defaults without changing their content", async () => {
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { DEFAULTS_YAML } = await import("../../src/load/embedded-yaml.js");
+  const dir = new URL("../../../../data/defaults/", import.meta.url);
+  const files = readdirSync(dir).filter((name) => name.endsWith(".yml")).sort();
+  assert.deepEqual(Object.keys(DEFAULTS_YAML).sort(), files.map((name) => name.slice(0, -4)));
+  for (const file of files) {
+    assert.equal(DEFAULTS_YAML[file.slice(0, -4)], readFileSync(new URL(file, dir), "utf8"));
+  }
+});

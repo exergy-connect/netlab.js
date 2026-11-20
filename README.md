@@ -94,7 +94,7 @@ YANG is the schema authority for what Netlab expresses in `defaults/attributes.y
 
 Module YANG under `yang/modules/` augments the topology root (groups inherit the node attribute namespace where Netlab does). Shared shapes use YANG `grouping`/`uses`, including cross-module `uses ntype:…` (requires `@exergy-connect/xyang` ≥ 0.1.6). Device names in YANG are open identifiers; the runtime still remaps unsupported platforms.
 
-The routing module currently handles static route list includes, directly connected node next hops, and basic policy and named-prefix filter normalization. It does not yet implement the full Netlab routing policy, filter, static-route, or device feature checks; successful YANG validation is not proof of routing configuration parity.
+The routing module handles static route includes and next hops, routing-policy normalization and device checks, and BGP import-policy references. It imports referenced filters and normalizes basic prefix filters. Full Netlab filter transformations, policy features, and static-route checks remain incomplete; successful YANG validation is not proof of routing configuration parity.
 
 ## Relationship to Netlab
 
@@ -147,8 +147,9 @@ when changing its source or dependencies.
 
 [`yang/netlab.js.yang`](yang/netlab.js.yang) defines a strict core subset of the
 transformed topology: supported devices, nodes, interfaces, neighbors, links,
-and their common attributes. It excludes input shorthand and data such as
-protocol settings, defaults, groups, and device-specific extensions. It uses
+and their common attributes. It excludes input shorthand and does not model
+defaults, groups, or device-specific extensions. It models BGP session, route-reflector, and interface attributes, including
+the BGP integration reference; other protocol attributes are not yet fully modeled. It uses
 the shared address types in `netlab-types.yang` (including its permissive IPv6
 type).
 
@@ -161,5 +162,33 @@ output against this subset.
 
 The library also exposes `exportMachineTopology(topology)` to create this
 machine-facing representation without mutating the runtime topology. It
-preserves other exported fields, including module data. Full output-schema
+omits `topology.defaults`, sorts object keys recursively, and preserves other
+exported fields, including module data and array order. Full output-schema
 coverage and output validation remain future work.
+
+## Compare with Python Netlab
+
+Run the **Compare with Netlab** workflow from the Actions tab and supply a
+repository topology path or an HTTP(S) URL. It transforms the same input with
+Python Netlab and netlab.js, then uploads both JSON outputs, normalized copies,
+and a unified diff as the `netlab-comparison` artifact. The comparison unwraps
+the netlab.js `topology` member and selects only the top-level `nodes`, `links`,
+`vlans`, and `vrfs` fields. It converts node lists to named dictionaries and
+sorts object keys; differences within the selected fields are retained. The job fails if either
+transform fails or the outputs differ. Differences are expected while compatibility
+is incomplete. The workflow installs the current PyPI `networklab` release.
+
+URL inputs must be self-contained. Local input files remain in their original
+location so Netlab can resolve relative dependencies; netlab.js does not yet
+implement all external source or plugin behavior.
+
+The YAML files in `data/defaults/` are vendored from Netlab's `netsim/defaults/`
+at commit `fd40227212637f1ed69bd418334cc14fc8ee7f69`. Run
+`npm run embed:data` after updating them. The JavaScript runtime currently
+chooses `clab` and `frr` as its own provider and device defaults; Netlab's
+separate `topology-defaults.yml` instead defaults to `libvirt` and leaves the
+device unspecified.
+
+BGP schema regression tests project Netlab dictionaries for VRFs, AS lists,
+confederations, and route imports into keyed YANG lists before validation. The
+machine JSON export retains its dictionary representation.

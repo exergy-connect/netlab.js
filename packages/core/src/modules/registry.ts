@@ -15,6 +15,7 @@ import * as vxlanMod from "./vxlan.js";
 import * as ospfMod from "./ospf.js";
 import * as isisMod from "./isis.js";
 import * as bgpMod from "./bgp.js";
+import * as mplsMod from "./mpls.js";
 import * as evpnMod from "./evpn.js";
 import * as routingMod from "./routing.js";
 
@@ -58,6 +59,7 @@ const MODULES: ModuleHooks[] = [
   asHooks(ospfMod),
   asHooks(isisMod),
   asHooks(bgpMod),
+  asHooks(mplsMod),
   asHooks(evpnMod),
   asHooks(routingMod),
 ];
@@ -128,7 +130,12 @@ export function mergeModuleParams(topology: Topology): void {
       const inherited = { ...(topology[m] as JsonObject) };
       // Global static routes are named lists and must not become node routes
       // unless explicitly included.
-      if (m === "routing") delete inherited.static;
+      if (m === "routing") {
+        for (const key of ["static", "policy", "prefix", "aspath", "community", "acl"]) delete inherited[key];
+      }
+      if (m === "bgp") {
+        for (const key of ["as_list", "confederation", "rr_list", "ebgp_role", "advertise_roles"]) delete inherited[key];
+      }
       const merged = deepMerge(inherited, nodeMod);
       // Skip empty containers — YANG has no node-level vlan/vrf stubs by default
       if (Object.keys(merged).length === 0) continue;
@@ -176,7 +183,7 @@ export function copyNodeModuleAttrsToInterfaces(topology: Topology): void {
         for (const a of attrs) {
           if (dst[a] === undefined && src[a] !== undefined) dst[a] = src[a]!;
         }
-        intf[mod] = dst;
+        if (Object.keys(dst).length > 0 || intf[mod] !== undefined) intf[mod] = dst;
       }
     }
   }

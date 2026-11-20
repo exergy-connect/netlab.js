@@ -1,18 +1,88 @@
 import type { ModuleHooks } from "./registry.js";
-import type { JsonObject, Link, Node, Topology, TransformContext } from "../types.js";
+import type { JsonObject, JsonValue, Link, Node, Topology, TransformContext } from "../types.js";
+import { getDevice } from "../devices/registry.js";
 import { networkFromHostCidr } from "../addressing/ipam.js";
 
 export const name = "bgp";
 
 const DEFAULT_SESSIONS: Record<string, string[]> = {
-  ipv4: ["ibgp", "ebgp", "localas_ibgp"],
-  ipv6: ["ibgp", "ebgp", "localas_ibgp"],
+  ipv4: ["ibgp", "ebgp", "localas_ibgp", "confed_ebgp"],
+  ipv6: ["ibgp", "ebgp", "localas_ibgp", "confed_ebgp"],
 };
 
 /** Rare session types inherit community lists (only when that session type is in use). */
 const INHERIT_COMMUNITY: Record<string, string> = {
   localas_ibgp: "ibgp",
 };
+
+/** Apply explicit AS membership before module defaults and BGP groups are propagated. */
+export function processBgpAsList(topology: Topology, ctx: TransformContext): void {
+  const entries = (topology.bgp as JsonObject | undefined)?.as_list;
+  if (!entries || typeof entries !== "object" || Array.isArray(entries)) return;
+  const assigned = new Map<string, number>();
+  const error = (message: string) => ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message });
+  for (const [key, data] of Object.entries(entries)) {
+    const asn = Number(key);
+    if (!Number.isInteger(asn) || asn < 1 || asn > 4294967295 || !data || typeof data !== "object" || Array.isArray(data) || !Array.isArray(data.members)) {
+      error(`Invalid BGP AS list entry ${key}`); continue;
+    }
+    const expand = (list: JsonValue[]): string[] => {
+      const result = new Set<string>();
+      for (const item of list) {
+        if (typeof item !== "string") { error(`Invalid BGP AS ${key} member`); continue; }
+        const escaped = item.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
+        const matches = Object.keys(topology.nodes ?? {}).filter((n) => new RegExp(`^${escaped}$`).test(n));
+        if (!matches.length) error(`Unknown BGP AS ${key} member ${item}`);
+        for (const match of matches) result.add(match);
+      }
+      return [...result];
+    };
+    const members = expand(data.members);
+    data.members = members;
+    const reflectors = Array.isArray(data.rr) ? expand(data.rr) : [];
+    if (Array.isArray(data.rr)) data.rr = reflectors;
+    for (const name of members) {
+      const node = topology.nodes![name]!;
+      const bgp = (node.bgp ?? {}) as JsonObject;
+      if ((assigned.has(name) && assigned.get(name) !== asn) || (bgp.as !== undefined && Number(bgp.as) !== asn)) {
+        error(`Node ${name} has conflicting BGP AS membership for ${asn}`); continue;
+      }
+      assigned.set(name, asn); bgp.as = asn; node.bgp = bgp;
+    }
+    for (const name of reflectors) {
+      if (!members.includes(name)) { error(`Route reflector ${name} is not a member of AS ${asn}`); continue; }
+      (topology.nodes![name]!.bgp as JsonObject).rr = true;
+    }
+  }
+}
+
+function configureConfederations(topology: Topology, ctx: TransformContext): void {
+  const configs = (topology.bgp as JsonObject | undefined)?.confederation;
+  if (!configs || typeof configs !== "object" || Array.isArray(configs)) return;
+  const owners = new Map<number, number>();
+  const error = (message: string) => ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message });
+  for (const [key, value] of Object.entries(configs)) {
+    const asn = Number(key);
+    if (!Number.isInteger(asn) || asn < 1 || asn > 4294967295 || !value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.members) || !value.members.length) { error(`Invalid BGP confederation ${key}`); continue; }
+    for (const member of value.members) {
+      if (typeof member !== "number" || !Number.isInteger(member) || member < 1 || member > 4294967295) { error(`Invalid BGP confederation member ${String(member)}`); continue; }
+      if (owners.has(member) || String(member) in configs) { error(`Conflicting BGP confederation member ${member}`); continue; }
+      owners.set(member, asn);
+    }
+  }
+  for (const node of Object.values(topology.nodes ?? {})) {
+    if (!(node.module ?? []).includes("bgp")) continue;
+    const bgp = node.bgp as JsonObject | undefined;
+    const member = Number(bgp?.as);
+    if (String(member) in configs) error(`Node ${node.name} uses confederation AS ${member} as its BGP AS`);
+    const parent = owners.get(member);
+    if (parent === undefined || !bgp) continue;
+    const features = getDevice(String(node.device)).features as JsonObject | undefined;
+    if (!(features?.bgp as JsonObject | undefined)?.confederation) { error(`Device ${node.device} on node ${node.name} does not support BGP confederations`); continue; }
+    const config = configs[String(parent)] as JsonObject;
+    bgp.confederation = { as: parent, peers: (config.members as number[]).filter((m) => m !== member) };
+  }
+}
 
 export function module_init(topology: Topology, _ctx: TransformContext): void {
   if (!topology.bgp) topology.bgp = {};
@@ -73,6 +143,7 @@ export function module_post_transform(topology: Topology, _ctx: TransformContext
     node.bgp = bgp;
   }
   buildBgpRrClusters(topology);
+  configureConfederations(topology, _ctx);
 }
 
 export function node_post_transform(node: Node, topology: Topology, _ctx: TransformContext): void {
@@ -84,7 +155,8 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
 
   buildBgpSessions(node, topology);
   bgpSetAdvertise(node, topology);
-  bgpTransformCommunityList(node);
+  bgpTransformCommunityList(node, topology, _ctx);
+  processBgpImports(node, _ctx);
   bgpBuildAdvertiseList(node);
   bgpSetOriginateAf(node);
   node.bgp = bgp;
@@ -213,16 +285,21 @@ function buildEbgpSessions(
       const localSetting = (intf.bgp as JsonObject | undefined)?.local_as ?? bgp.local_as;
       const peerSetting = (peerIntf?.bgp as JsonObject | undefined)?.local_as ?? peerBgp?.local_as;
       const localAs = Number(localSetting ?? nodeAs);
-      const remoteAs = Number(peerSetting ?? peerAs);
+      const nodeConfed = bgp.confederation as JsonObject | undefined;
+      const peerConfed = peerBgp?.confederation as JsonObject | undefined;
+      const sameConfed = nodeConfed?.as !== undefined && nodeConfed.as === peerConfed?.as;
+      const remoteAs = Number(peerSetting ?? (peerConfed && !sameConfed ? peerConfed.as : peerAs));
       if (!Number.isFinite(localAs) || !Number.isFinite(remoteAs) || remoteAs <= 0 || localAs === remoteAs) continue;
 
       const afData: JsonObject = {};
       if (typeof ngbIf.ipv4 === "string") afData.ipv4 = ngbIf.ipv4;
       if (typeof ngbIf.ipv6 === "string") afData.ipv6 = ngbIf.ipv6;
       const extra: JsonObject = { ifindex: intf.ifindex ?? 0 };
-      const nb = bgpNeighbor(peer, afData, "ebgp", sessions, extra);
+      const sessionType = sameConfed ? "confed_ebgp" : "ebgp";
+      const nb = bgpNeighbor(peer, afData, sessionType, sessions, extra);
       if (!nb) continue;
       nb.as = remoteAs;
+      if (sessionType === "confed_ebgp" && bgp.next_hop_self) nb.next_hop_self = "all";
       if (localSetting !== undefined) nb.local_as = localAs;
       neighbors.push(nb);
     }
@@ -312,6 +389,68 @@ function bgpBuildAdvertiseList(node: Node): void {
   else delete bgp.advertise;
 }
 
+function processBgpImports(node: Node, ctx: TransformContext, topology?: Topology): void {
+  const features = getDevice(String(node.device)).features as JsonObject | undefined;
+  const supported = (features?.bgp as JsonObject | undefined)?.import;
+  const error = (message: string, path: string) => ctx.diagnostics.error({ module: "bgp", code: "VALUE", category: "VALUE", message, path });
+  function normalize(bgp: JsonObject, path: string): void {
+    const raw = bgp.import;
+    if (raw === undefined) return;
+    let entries: [string, JsonValue][];
+    if (Array.isArray(raw)) entries = raw.map((item) => [String(item), true]);
+    else if (raw && typeof raw === "object") entries = Object.entries(raw);
+    else { error(`Invalid BGP route imports on node ${node.name}`, path); return; }
+    const result: JsonObject = {};
+    for (const [proto, setting] of entries) {
+      if (setting === false) continue;
+      if (!supported || (Array.isArray(supported) && !supported.includes(proto))) {
+        error(`Device ${node.device} cannot import ${proto} routes into BGP on node ${node.name}`, path); continue;
+      }
+      if (proto === "bgp" || (!(node.module ?? []).includes(proto) && !["connected", "static"].includes(proto))) {
+        error(`Cannot import ${proto} routes into BGP on node ${node.name}`, path); continue;
+      }
+      if (setting !== true && setting !== null && (typeof setting !== "object" || Array.isArray(setting))) {
+        error(`Invalid BGP import of ${proto} on node ${node.name}`, path); continue;
+      }
+      result[proto === "ripv2" ? "rip" : proto] = setting === true || setting === null ? {} : setting;
+    }
+    bgp.import = result;
+  }
+  if (!topology) {
+    if (node.bgp && typeof node.bgp === "object") normalize(node.bgp as JsonObject, `nodes.${node.name}.bgp.import`);
+    return;
+  }
+  if (!(node.module ?? []).includes("bgp") || !(node.bgp as JsonObject | undefined)?.as) return;
+  const vrfs = node.vrfs as Record<string, JsonObject> | undefined;
+  const vrfAware = supported === true || (Array.isArray(supported) && supported.includes("vrf"));
+  const defaults = (topology.defaults as JsonObject | undefined)?.const as JsonObject | undefined;
+  const protocols = Array.isArray(defaults?.vrf_igp_protocols) ? defaults.vrf_igp_protocols : ["connected"];
+  for (const [name, vrf] of Object.entries(vrfs ?? {})) {
+    if (vrf.bgp === false) continue;
+    if (!vrf.bgp || typeof vrf.bgp !== "object" || Array.isArray(vrf.bgp)) vrf.bgp = {};
+    const bgp = vrf.bgp as JsonObject;
+    const path = `nodes.${node.name}.vrfs.${name}.bgp.import`;
+    if (bgp.import !== undefined) {
+      if (!vrfAware) error(`Device ${node.device} cannot import routes into BGP in VRF ${name} on node ${node.name}`, path);
+      else normalize(bgp, path);
+      continue;
+    }
+    if (!vrfAware) continue;
+    const generated: JsonObject = {};
+    for (const proto of protocols) {
+      if (typeof proto !== "string") continue;
+      if (proto !== "connected" && !(proto in vrf)) continue;
+      generated[proto === "ripv2" ? "rip" : proto] = { auto: true };
+    }
+    if (Object.keys(generated).length) bgp.import = generated;
+  }
+}
+
+/** Process VRF imports after VRF node data has been assembled. */
+export function processBgpVrfImports(topology: Topology, ctx: TransformContext): void {
+  for (const node of Object.values(topology.nodes ?? {})) processBgpImports(node, ctx, topology);
+}
+
 /** Set bgp.ipv4/ipv6 when advertise list contains that AF (even without sessions). */
 function bgpSetOriginateAf(node: Node): void {
   const bgp = node.bgp as JsonObject;
@@ -322,7 +461,7 @@ function bgpSetOriginateAf(node: Node): void {
   }
 }
 
-function bgpTransformCommunityList(node: Node): void {
+function bgpTransformCommunityList(node: Node, topology: Topology, ctx: TransformContext): void {
   const bgp = node.bgp as JsonObject;
   const src = bgp.community as Record<string, string[]> | undefined;
   if (!src || typeof src !== "object") return;
@@ -334,6 +473,28 @@ function bgpTransformCommunityList(node: Node): void {
     if (!(iKw in clist) && from in clist) {
       clist[iKw] = [...(clist[from] ?? [])];
     }
+  }
+  if ((topology.bgp as JsonObject | undefined)?.confederation && !clist.confed_ebgp && clist.ibgp) {
+    clist.confed_ebgp = [...clist.ibgp];
+  }
+  const features = getDevice(String(node.device)).features as JsonObject | undefined;
+  const bgpFeatures = features?.bgp as JsonObject | undefined;
+  const mapping = (bgpFeatures?.community && typeof bgpFeatures.community === "object"
+    ? bgpFeatures.community : { standard: "standard", extended: "extended" }) as JsonObject;
+  for (const [session, keywords] of Object.entries(clist)) {
+    if (!Array.isArray(keywords)) continue;
+    const transformed: string[] = [];
+    for (const keyword of keywords) {
+      const value = mapping[keyword];
+      if (value === undefined) {
+        ctx.diagnostics.error({ code: "VALUE", category: "VALUE", module: "bgp", message: `Invalid ${session} BGP community propagation keyword '${keyword}' for device ${node.device}/node ${node.name}`, path: `nodes.${node.name}.bgp.community.${session}` });
+        continue;
+      }
+      for (const mapped of Array.isArray(value) ? value : [value]) {
+        if (typeof mapped === "string" && !transformed.includes(mapped)) transformed.push(mapped);
+      }
+    }
+    clist[session] = transformed;
   }
   bgp.community = clist;
 }

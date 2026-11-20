@@ -110,11 +110,16 @@ export function transformNodes(topology: Topology): void {
       def.mgmt_if !== undefined
         ? String(def.mgmt_if)
         : formatIfName(String(def.interface_name ?? "eth{ifindex}"), ifindexOffset - 1);
+    const configuredMgmt = node.mgmt ?? {};
     node.mgmt = {
       ifname: mgmtIf || "eth0",
       ipv4: nthHost(mgmtBase, mgmtStart + id),
       mac: macFromId(String(mgmtPool.mac ?? "CA-FE-00-00-00-00"), id),
+      ...configuredMgmt,
     };
+    if (typeof node.mgmt.mac === "string" && configuredMgmt.mac !== undefined) {
+      node.mgmt.mac = formatMac(node.mgmt.mac);
+    }
 
     if ((node as Record<string, unknown>).loopback !== false && (node.role === "router" || node.role === "gateway" || !node.role)) {
       const loName = formatIfName(String(def.loopback_interface_name ?? "lo{ifindex}"), 0);
@@ -193,8 +198,14 @@ function parseV4(cidr: string): [number, number] {
   return [base & mask, plen];
 }
 
+function formatMac(mac: string): string {
+  const hex = mac.replace(/[:-]/g, "").toLowerCase();
+  return /^[0-9a-f]{12}$/.test(hex) ? hex.match(/../g)!.join(":") : mac;
+}
+
 function macFromId(template: string, id: number): string {
-  // CA-FE-00-00-00-00 + id in last octets
-  const hex = id.toString(16).padStart(4, "0");
-  return template.replace(/00-00$/, `${hex.slice(0, 2)}-${hex.slice(2)}`);
+  const hex = template.replace(/[:-]/g, "");
+  if (!/^[0-9a-fA-F]{12}$/.test(hex)) return template;
+  const value = BigInt(`0x${hex}`) + BigInt(id) * (id < 256 ? 65536n : 1n);
+  return formatMac(value.toString(16).padStart(12, "0"));
 }

@@ -1,0 +1,17 @@
+module netlab-mpls {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:mpls";
+  prefix mpls;
+  import netlab-topology { prefix nt; }
+  description "MPLS and LDP attributes.";
+  revision 2026-11-20 { description "Initial MPLS support."; }
+  augment "/nt:topology/nt:nodes" {
+    anydata mpls;
+    anydata ldp;
+  }
+  augment "/nt:topology/nt:nodes/nt:interfaces" {
+    anydata mpls;
+    anydata ldp;
+  }
+  augment "/nt:topology/nt:links" { anydata mpls; }
+}

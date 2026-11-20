@@ -61,6 +61,7 @@ links:
       bgp.local_as: 65100
 `));
     assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    assert.equal((topology.nodes!.leaf!.interfaces![0]!.bgp as { local_as?: number }).local_as, 65201);
     const leaf = topology.nodes!.leaf!.bgp!.neighbors as { type: string; name: string; as: number; local_as?: number; ifindex?: number }[];
     const spine = topology.nodes!.spine!.bgp!.neighbors as typeof leaf;
     assert.ok(leaf.some((n) => n.type === "ibgp" && n.name === "spine"));
@@ -285,4 +286,196 @@ links:
     assert.equal(svi!.ifname, "Vlan1000");
     assert.equal((s1.vlans as Record<string, { mode?: string }>).red?.mode, "bridge");
   });
+});
+
+describe("MPLS EVPN bridging", () => {
+  it("transforms grouped MPLS LDP nodes and retains EVPN VLANs without VXLAN", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: none
+mpls.ldp: true
+evpn.transport: mpls
+evpn.vlans: [red, blue]
+bgp.as: 65000
+groups:
+  _auto_create: true
+  switches:
+    members: [dut, s2]
+    module: [vlan, mpls, ospf, bgp, evpn]
+  core:
+    members: [p]
+    module: [ospf, mpls]
+vlans:
+  red: {mode: bridge}
+  blue: {mode: bridge}
+links: [dut-p, p-s2]
+`));
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    for (const name of ["dut", "s2", "p"]) {
+      const node = topology.nodes![name]!;
+      assert.ok(node.ldp);
+      assert.ok(node.interfaces!.some((intf) => intf.ldp));
+    }
+    assert.deepEqual((topology.nodes!.dut!.evpn as {vlans: string[]}).vlans, ["red", "blue"]);
+    assert.equal(topology.vxlan, undefined);
+  });
+});
+
+describe("Netlab management MACs and BGP communities", () => {
+  it("allocates MACs from the pool and applies device community mappings", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+addressing.mgmt.mac: 'ca:fe:00:00:00:05'
+module: [bgp]
+bgp.as: 65000
+nodes:
+  r1: {id: 1}
+  r2: {id: 256}
+  r3:
+    id: 3
+    mgmt.mac: 'AA-BB-CC-DD-EE-FF'
+`), { validate: false });
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    assert.equal(topology.nodes!.r1!.mgmt!.mac, 'ca:fe:00:01:00:05');
+    assert.equal(topology.nodes!.r2!.mgmt!.mac, 'ca:fe:00:00:01:05');
+    assert.equal(topology.nodes!.r3!.mgmt!.mac, 'aa:bb:cc:dd:ee:ff');
+    const community = topology.nodes!.r1!.bgp!.community as Record<string, string[]>;
+    assert.deepEqual(community.ebgp, ['standard', 'large']);
+    assert.deepEqual(community.ibgp, ['standard', 'large', 'extended']);
+    assert.deepEqual(community.localas_ibgp, community.ibgp);
+  });
+
+  it("does not add FRR community mappings to devices without them", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: none
+module: [bgp]
+bgp.as: 65000
+nodes: {r1:}
+`));
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    assert.deepEqual((topology.nodes!.r1!.bgp!.community as Record<string, string[]>).ebgp, ['standard']);
+  });
+});
+
+describe("BGP AS lists, confederations and imports", () => {
+  it("assigns AS membership and builds internal and external confederation sessions", () => {
+    const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp]
+bgp.as_list:
+  65001: {members: [a]}
+  65002: {members: [b]}
+  65003: {members: [c]}
+bgp.confederation:
+  65000: {members: [65001, 65002]}
+nodes: [a, b, c]
+links: [a-b, b-c]
+`));
+    assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
+    const nodes = result.topology.nodes!;
+    assert.deepEqual((nodes.a!.bgp!.confederation as any), {as: 65000, peers: [65002]});
+    const a = (nodes.a!.bgp!.neighbors as any[])[0];
+    assert.deepEqual([a.name, a.as, a.type, a.next_hop_self], ["b", 65002, "confed_ebgp", "all"]);
+    const b = nodes.b!.bgp!.neighbors as any[];
+    assert.deepEqual(b.map(n => [n.name, n.as, n.type]), [["a", 65001, "confed_ebgp"], ["c", 65003, "ebgp"]]);
+    const c = (nodes.c!.bgp!.neighbors as any[])[0];
+    assert.deepEqual([c.name, c.as, c.type], ["b", 65000, "ebgp"]);
+    assert.equal(nodes.c!.bgp!.confederation, undefined);
+  });
+
+  it("rejects conflicting AS membership and normalizes route imports", () => {
+    const conflict = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp]
+bgp.as_list:
+  65001: {members: [a]}
+  65002: {members: [a]}
+nodes: [a]
+`), {validate: false});
+    assert.ok(conflict.diagnostics.list().some(d => d.message.includes("conflicting BGP AS membership")));
+    const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp, ospf]
+bgp.as: 65000
+nodes:
+  a:
+    bgp.import: [ospf, connected]
+  b:
+links: [a-b]
+`));
+    assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
+    assert.deepEqual(result.topology.nodes!.a!.bgp!.import, {ospf: {}, connected: {}});
+  });
+});
+
+describe("BGP VRF route imports", () => {
+  it("adds connected imports after global VRFs are assigned to nodes", () => {
+    const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp, vrf]
+bgp.as: 65000
+vrfs:
+  red:
+    links: [r1-h1]
+nodes:
+  r1:
+  h1: {device: linux, module: []}
+`));
+    assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
+    const vrfs = result.topology.nodes!.r1!.vrfs as Record<string, any>;
+    assert.deepEqual(vrfs.red.bgp.import, {connected: {auto: true}});
+    assert.equal((result.topology.vrfs!.red as any).bgp, undefined);
+  });
+
+  it("honors explicit VRF imports and node overrides", () => {
+    const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp, vrf]
+bgp.as: 65000
+vrfs:
+  red:
+    bgp.import: [connected]
+    links: [r1-h1]
+nodes:
+  r1:
+    vrfs:
+      red:
+        bgp.import:
+          connected: false
+          static: true
+  h1: {device: linux, module: []}
+`), {validate: false});
+    assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
+    const vrfs = result.topology.nodes!.r1!.vrfs as Record<string, any>;
+    assert.deepEqual(vrfs.red.bgp.import, {static: {}});
+  });
+
+  it("reports explicit VRF imports when a device lacks VRF import support", () => {
+    const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp, vrf]
+bgp.as: 65000
+vrfs:
+  red:
+    bgp.import: [connected]
+    links: [r1-h1]
+nodes:
+  r1: {device: linux, module: [bgp, vrf]}
+  h1: {device: linux, module: []}
+`), {validate: false});
+    assert.ok(result.diagnostics.list().some(d => d.message.includes("cannot import routes into BGP in VRF red")));
+  });
+});
+
+
+it("does not create empty interface BGP data when no attributes are copied", () => {
+  const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp]
+bgp.as: 65000
+nodes: [r1, r2]
+links: [r1-r2]
+`));
+  assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+  assert.equal(topology.nodes!.r1!.interfaces![0]!.bgp, undefined);
+  assert.equal(topology.nodes!.r2!.interfaces![0]!.bgp, undefined);
 });

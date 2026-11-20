@@ -17,6 +17,15 @@ test("normalizes a topology and rejects invalid input", () => {
     const valid = run("valid.yml");
     assert.equal(valid.status, 0, valid.stderr);
     const result = JSON.parse(readFileSync(join(dir, "out/topology.json"), "utf8"));
+    const assertSorted = (value) => {
+      if (Array.isArray(value)) return value.forEach(assertSorted);
+      if (value && typeof value === "object") {
+        const keys = Object.keys(value);
+        assert.deepEqual(keys, [...keys].sort());
+        Object.values(value).forEach(assertSorted);
+      }
+    };
+    assertSorted(result);
     assert.ok(Array.isArray(result.topology.nodes));
     assert.equal(result.topology.nodes[0].name, "r1");
     assert.match(readFileSync(join(dir, "outputs"), "utf8"), /path=.*out\/topology\.json/);

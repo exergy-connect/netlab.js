@@ -1,0 +1,431 @@
+{
+  "topology": {
+    "addressing": {
+      "l2only": {},
+      "lan": {
+        "ipv4": "172.16.0.0/16",
+        "prefix": 24
+      },
+      "loopback": {
+        "ipv4": "10.0.0.0/24",
+        "prefix": 32
+      },
+      "mgmt": {
+        "ipv4": "192.168.121.0/24",
+        "mac": "CA-FE-00-00-00-00",
+        "prefix": 24,
+        "start": 100
+      },
+      "p2p": {
+        "ipv4": "10.1.0.0/16",
+        "prefix": 30
+      },
+      "router_id": {
+        "ipv4": "10.0.0.0/24",
+        "prefix": 32
+      },
+      "vrf_loopback": {
+        "ipv4": "10.2.0.0/24",
+        "prefix": 32
+      }
+    },
+    "bgp": {
+      "advertise_loopback": true,
+      "as": 65000,
+      "community": {
+        "ebgp": [
+          "standard"
+        ],
+        "ibgp": [
+          "standard",
+          "extended"
+        ]
+      },
+      "next_hop_self": true
+    },
+    "groups": {
+      "as65000": {
+        "members": [
+          "dut"
+        ]
+      },
+      "as65100": {
+        "members": [
+          "x1"
+        ]
+      },
+      "as65101": {
+        "members": [
+          "x2"
+        ]
+      },
+      "probes": {
+        "device": "frr",
+        "members": [
+          "x1",
+          "x2"
+        ],
+        "provider": "clab"
+      }
+    },
+    "links": [
+      {
+        "interfaces": [
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.1/30",
+            "node": "dut"
+          },
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.2/30",
+            "node": "x1"
+          }
+        ],
+        "linkindex": 1,
+        "node_count": 2,
+        "prefix": {
+          "ipv4": "10.1.0.0/30"
+        },
+        "role": "external",
+        "type": "p2p"
+      },
+      {
+        "interfaces": [
+          {
+            "ifindex": 2,
+            "ifname": "eth2",
+            "ipv4": "10.1.0.5/30",
+            "node": "dut"
+          },
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.6/30",
+            "node": "x2"
+          }
+        ],
+        "linkindex": 2,
+        "node_count": 2,
+        "prefix": {
+          "ipv4": "10.1.0.4/30"
+        },
+        "role": "external",
+        "type": "p2p"
+      }
+    ],
+    "message": "Use this topology to test the baseline IPv4 EBGP implementation and\npropagation of routes between EBGP speakers.\n",
+    "module": [
+      "bgp"
+    ],
+    "name": "topology",
+    "nodes": [
+      {
+        "af": {
+          "ipv4": true
+        },
+        "bgp": {
+          "advertise": [
+            {
+              "ipv4": "10.0.0.1/32"
+            }
+          ],
+          "advertise_loopback": true,
+          "as": 65000,
+          "community": {
+            "ebgp": [
+              "standard",
+              "large"
+            ],
+            "ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ],
+            "localas_ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ]
+          },
+          "ipv4": true,
+          "neighbors": [
+            {
+              "activate": {
+                "ipv4": true
+              },
+              "as": 65100,
+              "ifindex": 1,
+              "ipv4": "10.1.0.2",
+              "name": "x1",
+              "type": "ebgp"
+            },
+            {
+              "activate": {
+                "ipv4": true
+              },
+              "as": 65101,
+              "ifindex": 2,
+              "ipv4": "10.1.0.6",
+              "name": "x2",
+              "type": "ebgp"
+            }
+          ],
+          "next_hop_self": true,
+          "router_id": "10.0.0.1"
+        },
+        "device": "frr",
+        "id": 1,
+        "interfaces": [
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.1/30",
+            "linkindex": 1,
+            "neighbors": [
+              {
+                "ifname": "eth1",
+                "ipv4": "10.1.0.2/30",
+                "node": "x1"
+              }
+            ],
+            "role": "external",
+            "type": "p2p"
+          },
+          {
+            "ifindex": 2,
+            "ifname": "eth2",
+            "ipv4": "10.1.0.5/30",
+            "linkindex": 2,
+            "neighbors": [
+              {
+                "ifname": "eth1",
+                "ipv4": "10.1.0.6/30",
+                "node": "x2"
+              }
+            ],
+            "role": "external",
+            "type": "p2p"
+          }
+        ],
+        "loopback": {
+          "bgp": {
+            "advertise": true
+          },
+          "ifindex": 0,
+          "ifname": "lo",
+          "ipv4": "10.0.0.1/32",
+          "neighbors": [],
+          "type": "loopback",
+          "virtual_interface": true
+        },
+        "mgmt": {
+          "ifname": "eth0",
+          "ipv4": "192.168.121.101",
+          "mac": "ca:fe:00:01:00:00"
+        },
+        "module": [
+          "bgp"
+        ],
+        "name": "dut",
+        "role": "router"
+      },
+      {
+        "af": {
+          "ipv4": true
+        },
+        "bgp": {
+          "advertise": [
+            {
+              "ipv4": "10.0.0.2/32"
+            }
+          ],
+          "advertise_loopback": true,
+          "as": 65100,
+          "community": {
+            "ebgp": [
+              "standard",
+              "large"
+            ],
+            "ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ],
+            "localas_ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ]
+          },
+          "ipv4": true,
+          "neighbors": [
+            {
+              "activate": {
+                "ipv4": true
+              },
+              "as": 65000,
+              "ifindex": 1,
+              "ipv4": "10.1.0.1",
+              "name": "dut",
+              "type": "ebgp"
+            }
+          ],
+          "next_hop_self": true,
+          "router_id": "10.0.0.2"
+        },
+        "device": "frr",
+        "id": 2,
+        "interfaces": [
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.2/30",
+            "linkindex": 1,
+            "neighbors": [
+              {
+                "ifname": "eth1",
+                "ipv4": "10.1.0.1/30",
+                "node": "dut"
+              }
+            ],
+            "role": "external",
+            "type": "p2p"
+          }
+        ],
+        "loopback": {
+          "bgp": {
+            "advertise": true
+          },
+          "ifindex": 0,
+          "ifname": "lo",
+          "ipv4": "10.0.0.2/32",
+          "neighbors": [],
+          "type": "loopback",
+          "virtual_interface": true
+        },
+        "mgmt": {
+          "ifname": "eth0",
+          "ipv4": "192.168.121.102",
+          "mac": "ca:fe:00:02:00:00"
+        },
+        "module": [
+          "bgp"
+        ],
+        "name": "x1",
+        "provider": "clab",
+        "role": "router"
+      },
+      {
+        "af": {
+          "ipv4": true
+        },
+        "bgp": {
+          "advertise": [
+            {
+              "ipv4": "172.42.42.0/24"
+            }
+          ],
+          "advertise_loopback": true,
+          "as": 65101,
+          "community": {
+            "ebgp": [
+              "standard",
+              "large"
+            ],
+            "ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ],
+            "localas_ibgp": [
+              "standard",
+              "large",
+              "extended"
+            ]
+          },
+          "ipv4": true,
+          "neighbors": [
+            {
+              "activate": {
+                "ipv4": true
+              },
+              "as": 65000,
+              "ifindex": 1,
+              "ipv4": "10.1.0.5",
+              "name": "dut",
+              "type": "ebgp"
+            }
+          ],
+          "next_hop_self": true,
+          "router_id": "172.42.42.1"
+        },
+        "device": "frr",
+        "id": 3,
+        "interfaces": [
+          {
+            "ifindex": 1,
+            "ifname": "eth1",
+            "ipv4": "10.1.0.6/30",
+            "linkindex": 2,
+            "neighbors": [
+              {
+                "ifname": "eth2",
+                "ipv4": "10.1.0.5/30",
+                "node": "dut"
+              }
+            ],
+            "role": "external",
+            "type": "p2p"
+          }
+        ],
+        "loopback": {
+          "bgp": {
+            "advertise": true
+          },
+          "ifindex": 0,
+          "ifname": "lo",
+          "ipv4": "172.42.42.1/24",
+          "neighbors": [],
+          "type": "loopback",
+          "virtual_interface": true
+        },
+        "mgmt": {
+          "ifname": "eth0",
+          "ipv4": "192.168.121.103",
+          "mac": "ca:fe:00:03:00:00"
+        },
+        "module": [
+          "bgp"
+        ],
+        "name": "x2",
+        "provider": "clab",
+        "role": "router"
+      }
+    ],
+    "provider": "clab",
+    "validate": {
+      "prefix": {
+        "description": "Check whether DUT propagates the beacon prefix",
+        "nodes": [
+          "x1"
+        ],
+        "plugin": "bgp_prefix('172.42.42.0/24')",
+        "wait": "bgp_scan_time",
+        "wait_msg": "Wait for BGP convergence"
+      },
+      "session": {
+        "description": "Check EBGP sessions with DUT",
+        "nodes": [
+          "x1",
+          "x2"
+        ],
+        "plugin": "bgp_neighbor(node.bgp.neighbors,'dut')",
+        "wait": "ebgp_session",
+        "wait_msg": "Wait for BGP sessions to be established"
+      }
+    }
+  }
+}
