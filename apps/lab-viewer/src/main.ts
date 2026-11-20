@@ -377,8 +377,15 @@ function renderGraph(topology: Topology): void {
   const represented = new Set<unknown>();
   const interfacePositions = new Map<unknown, { x: number; y: number }>();
   const linkLabels = new Map<unknown, { x: number; y: number; angle: number; side: number }>();
+  const links = topology.links ?? [];
+  const lagParents = new Set(links.flatMap((link) => {
+    const lag = link.lag;
+    return lag && typeof lag === "object" && !Array.isArray(lag) && typeof lag._parentindex === "number"
+      ? [lag._parentindex] : [];
+  }));
+  const lagEndpoints = new Map<string, { node: string; parent: number; points: { x: number; y: number }[] }>();
   for (const link of topology.links ?? []) {
-    if (link.type === "vlan_member") continue;
+    if (link.type === "vlan_member" || (link.type === "lag" && lagParents.has(link.linkindex ?? -1))) continue;
     const ends = (link.interfaces ?? []).filter((end) => end.node && pos.has(end.node));
     if (ends.length === 1) {
       const end = ends[0]!;
@@ -440,12 +447,48 @@ function renderGraph(topology: Topology): void {
         const endpoint = end === first ? 0.32 : 0.68;
         linkLabels.set(intf, { x: x1 + (x2 - x1) * endpoint, y: y1 + (y2 - y1) * endpoint, angle, side: (end === first ? -1 : 1) * (flip ? -1 : 1) });
         const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
-        interfacePositions.set(intf, { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
+        const point = { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t };
+        interfacePositions.set(intf, point);
+        const lag = link.lag;
+        const parent = lag && typeof lag === "object" && !Array.isArray(lag) ? lag._parentindex : undefined;
+        if (typeof parent === "number") {
+          const key = `${parent}\0${end.node}`;
+          const group = lagEndpoints.get(key) ?? { node: end.node!, parent, points: [] };
+          group.points.push(point);
+          lagEndpoints.set(key, group);
+        }
         interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
         interfaceLayer.append(bubble);
         decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], (intf.type === "svi" || intf.type === "vlan_member"));
       }
     }
+  }
+  // A LAG is a logical interface, not another physical edge. Connect its
+  // member ports with a curved bond and keep the aggregate selectable.
+  for (const group of lagEndpoints.values()) {
+    const node = topology.nodes?.[group.node];
+    const aggregate = node?.interfaces?.find((intf) => intf.type === "lag" && intf.linkindex === group.parent);
+    const center = pos.get(group.node);
+    if (!aggregate || !center || group.points.length === 0) continue;
+    const points = group.points;
+    const mean = { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length };
+    const dx = mean.x - center.x, dy = mean.y - center.y, length = Math.hypot(dx, dy) || 1;
+    const control = { x: mean.x + dx / length * 20, y: mean.y + dy / length * 20 };
+    if (points.length > 1) {
+      const normal = { x: -dy / length, y: dx / length };
+      points.sort((a, b) => (a.x - b.x) * normal.x + (a.y - b.y) * normal.y);
+      const first = points[0]!, last = points[points.length - 1]!;
+      const arc = svg("path", { d: `M ${first.x} ${first.y} Q ${control.x} ${control.y} ${last.x} ${last.y}`, class: "lag-bond" });
+      interactive(arc, `LAG ${group.node} · ${aggregate.ifname ?? "aggregate"}`, aggregate);
+      interfaceLayer.append(arc);
+    }
+    const point = { x: (mean.x + control.x) / 2, y: (mean.y + control.y) / 2 };
+    represented.add(aggregate);
+    interfacePositions.set(aggregate, point);
+    const bubble = svg("circle", { cx: point.x, cy: point.y, r: 7, class: "interface-bubble" });
+    interactive(bubble, `Interface ${group.node} · ${aggregate.ifname ?? "aggregate"}`, aggregate);
+    interfaceLayer.append(bubble);
+    decorateVlan(bubble, vlanNames(aggregate), false);
   }
   const bgpSeen = new Set<string>();
   for (const name of nodes) {
