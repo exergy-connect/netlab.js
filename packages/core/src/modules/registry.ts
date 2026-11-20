@@ -165,6 +165,7 @@ export function copyNodeModuleAttrsToInterfaces(topology: Topology): void {
       if (!attrs.length) continue;
       const src = (node[mod] as JsonObject) ?? {};
       for (const intf of node.interfaces ?? []) {
+        if (intf[mod] === false) continue;
         const dst = ((intf[mod] as JsonObject) ?? {}) as JsonObject;
         for (const a of attrs) {
           if (dst[a] === undefined && src[a] !== undefined) dst[a] = src[a]!;

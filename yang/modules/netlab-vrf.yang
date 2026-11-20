@@ -38,10 +38,17 @@ module netlab-vrf {
   }
 
   augment "/nt:topology/nt:nodes" {
+    anydata vrf {
+      description "Node-level VRF module settings.";
+    }
     list vrfs {
       key "name";
       uses vrf-definition;
     }
+  }
+
+  augment "/nt:topology/nt:links" {
+    leaf vrf { type string; }
   }
 
   augment "/nt:topology/nt:nodes/nt:interfaces" {

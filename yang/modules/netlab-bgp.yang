@@ -30,6 +30,21 @@ module netlab-bgp {
     }
   }
 
+  grouping bgp-interface-attrs {
+    leaf local_as {
+      type uint32;
+    }
+    leaf replace_global_as {
+      type boolean;
+    }
+    leaf advertise {
+      type boolean;
+    }
+    leaf default_originate {
+      type boolean;
+    }
+  }
+
   augment "/nt:topology" {
     container bgp {
       leaf as {
@@ -78,15 +93,13 @@ module netlab-bgp {
 
   augment "/nt:topology/nt:nodes/nt:interfaces" {
     container bgp {
-      leaf local_as {
-        type uint32;
-      }
-      leaf replace_global_as {
-        type boolean;
-      }
-      leaf advertise {
-        type boolean;
-      }
+      uses bgp-interface-attrs;
+    }
+  }
+
+  augment "/nt:topology/nt:links/nt:interfaces" {
+    container bgp {
+      uses bgp-interface-attrs;
     }
   }
 

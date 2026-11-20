@@ -42,6 +42,9 @@ module netlab-vlan {
 
   grouping vlan-definition {
     description "Shared VLAN object fields (global and per-node).";
+    anydata ospf {
+      description "OSPF settings for VLAN interfaces.";
+    }
     leaf name {
       type string;
     }

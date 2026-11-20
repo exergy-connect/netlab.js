@@ -22,6 +22,7 @@ import {
 import { selectProvider, providerPreTransform, providerPostTransform } from "../provider/clab.js";
 import { processQuirks } from "../devices/quirks.js";
 import { applyDefaults } from "../load/parse.js";
+import { expandVrfLinks } from "../modules/vrf.js";
 
 export type PipelineHooks = {
   afterSetup?: (topology: Topology, ctx: TransformContext) => void;
@@ -52,6 +53,18 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   canonicalizeLinks(topology, diagnostics);
   copyGroupData(topology);
   applyNodeDeviceDefaults(topology, diagnostics);
+  expandVrfLinks(topology, ctx);
+  for (const node of Object.values(topology.nodes)) {
+    if ((node as Record<string, unknown>).loopback === true) node.loopback = {};
+  }
+  for (const link of topology.links ?? []) {
+    if (typeof link.prefix !== "string") continue;
+    const name = link.prefix;
+    const prefixes = topology.prefix;
+    const value = prefixes && typeof prefixes === "object" && !Array.isArray(prefixes) ? prefixes[name] : undefined;
+    if (value && typeof value === "object" && !Array.isArray(value)) link.prefix = structuredClone(value);
+    else diagnostics.error({ module: "links", code: "VALUE", category: "VALUE", message: `Unknown named prefix ${name}` });
+  }
 
   // Propagate topology modules only when node has no explicit module list
   // (including module: [] which must stay empty — Netlab augment_node_module).

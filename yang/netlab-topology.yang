@@ -139,6 +139,18 @@ module netlab-topology {
       anydata config {
         description "Inline config templates (list or dict; files plugin).";
       }
+      container frr {
+        description "FRR-specific node settings.";
+        leaf-list debug {
+          type string;
+        }
+        leaf-list daemons {
+          type string;
+        }
+        leaf logfile {
+          type string;
+        }
+      }
       leaf _daemon {
         type boolean;
       }
