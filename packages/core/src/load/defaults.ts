@@ -1,4 +1,4 @@
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import type { JsonObject } from "../types.js";
 import { moduleDefaultsForSystem } from "../modules/defs.js";
 import { DEFAULTS_YAML } from "./embedded-yaml.js";

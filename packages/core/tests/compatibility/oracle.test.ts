@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { loadTopologyFile } from "../../src/load/load.js";
 import { transformAndExport } from "../../src/transform/orchestrator.js";
 

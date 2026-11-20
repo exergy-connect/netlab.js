@@ -1,27 +1,53 @@
 {
-  "name": "netlab.js",
+  "name": "@exergy-connect/netlab",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "build": "npm run build -w @exergy-connect/netlab",
-    "build:viewer": "npm run build -w @exergy-connect/netlab-lab-viewer",
+    "build": "tsc -p packages/core/tsconfig.json",
+    "build:viewer": "vite build --config apps/lab-viewer/vite.config.ts",
     "build:all": "npm run build && npm run build:viewer",
     "build:pages": "node tools/sync-docs.mjs",
-    "test": "npm run test -w @exergy-connect/netlab",
-    "test:compat": "npm run test:compat -w @exergy-connect/netlab",
-    "viewer": "npm run dev -w @exergy-connect/netlab-lab-viewer",
+    "test": "tsx --test packages/core/tests/unit/**/*.test.ts",
+    "test:compat": "tsx --test packages/core/tests/compatibility/**/*.test.ts",
+    "viewer": "vite --config apps/lab-viewer/vite.config.ts",
     "gen:types": "node tools/gen-types.mjs",
     "embed:data": "node tools/embed-data.mjs",
-    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
+    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "preview:viewer": "vite preview --config apps/lab-viewer/vite.config.ts"
   },
   "engines": {
     "node": ">=24"
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "version": "0.1.0",
+  "description": "Netlab topology transformation core (YANG + xYang + JS transforms)",
+  "license": "Apache-2.0",
+  "main": "./packages/core/dist/index.js",
+  "types": "./packages/core/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./packages/core/dist/index.d.ts",
+      "import": "./packages/core/dist/index.js",
+      "default": "./packages/core/dist/index.js"
+    },
+    "./browser": {
+      "types": "./packages/core/dist/browser.d.ts",
+      "import": "./packages/core/dist/browser.js",
+      "default": "./packages/core/dist/browser.js"
+    }
+  },
+  "dependencies": {
+    "@exergy-connect/xyang": "^0.1.6",
+    "ipaddr.js": "^2.2.0",
+    "js-yaml": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
   }
 }

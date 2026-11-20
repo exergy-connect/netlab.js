@@ -1,4 +1,4 @@
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import type { DeviceDef, JsonObject } from "../types.js";
 import { SUPPORTED_DEVICES } from "../types.js";
 import { deepMerge } from "../data/merge.js";

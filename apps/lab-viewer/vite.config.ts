@@ -5,9 +5,9 @@ import path from "node:path";
 // GitHub project pages serve from /<repo>/ when publishing the /docs folder.
 const base = process.env.VITE_BASE_PATH || "/";
 const buildTime = new Date().toISOString();
-const shim = (name: string) => path.resolve(__dirname, `src/${name}`);
-const yangRoot = path.resolve(__dirname, "../../yang");
-const yangDataFile = path.resolve(__dirname, "src/yang-files-data.ts");
+const shim = (name: string) => path.resolve(import.meta.dirname, `src/${name}`);
+const yangRoot = path.resolve(import.meta.dirname, "../../yang");
+const yangDataFile = path.resolve(import.meta.dirname, "src/yang-files-data.ts");
 
 function collectYangFiles(): Record<string, string> {
   const out: Record<string, string> = {};
@@ -42,7 +42,7 @@ function writeYangFilesData(): void {
 writeYangFilesData();
 
 export default defineConfig({
-  root: ".",
+  root: import.meta.dirname,
   base,
   define: {
     __BUILD_TIME__: JSON.stringify(buildTime),
@@ -55,7 +55,7 @@ export default defineConfig({
     alias: [
       {
         find: "@exergy-connect/netlab",
-        replacement: path.resolve(__dirname, "../../packages/core/src/browser.ts"),
+        replacement: path.resolve(import.meta.dirname, "../../packages/core/src/browser.ts"),
       },
       // Let xYang / schema load yang/ in the browser
       { find: /^node:fs$/, replacement: shim("yang-fs-shim.ts") },
@@ -68,7 +68,7 @@ export default defineConfig({
   },
   server: {
     fs: {
-      allow: [path.resolve(__dirname, "../.."), path.resolve(__dirname, "../../../xYang")],
+      allow: [path.resolve(import.meta.dirname, "../.."), path.resolve(import.meta.dirname, "../../../xYang")],
     },
   },
 });

@@ -21,6 +21,7 @@ TypeScript core is usable for transform + optional YANG validation:
 | Lab viewer | Paste YAML, transform, graph, nodes/links JSON (optional full JSON + YANG validate) |
 
 Requires Node.js 24+. See [CHANGELOG.md](CHANGELOG.md) for recent changes.
+The root `package.json` manages dependencies and commands for both the core and viewer.
 
 ```bash
 npm install

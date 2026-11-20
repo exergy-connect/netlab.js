@@ -1,4 +1,4 @@
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import type { JsonObject, Topology } from "../types.js";
 import { expandDottedKeys, expandDottedKeysInPlace } from "../data/dotted.js";
 import { deepMerge } from "../data/merge.js";

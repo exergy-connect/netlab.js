@@ -17,7 +17,7 @@ const base = process.env.VITE_BASE_PATH || "/netlab.js/";
 
 const build = spawnSync(
   "npm",
-  ["run", "build", "-w", "@exergy-connect/netlab-lab-viewer"],
+  ["run", "build:viewer"],
   {
     cwd: root,
     stdio: "inherit",
