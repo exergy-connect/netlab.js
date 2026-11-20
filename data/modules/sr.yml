@@ -1,0 +1,21 @@
+# SR-MPLS default settings and attributes
+transform_after: [ vlan, ospf, isis ]
+config_after: [ vlan, ospf, isis ]
+no_propagate: [ node_sid_offset ]
+node_sid_offset:
+  ipv4: 0
+  ipv6: 100
+protocol: [ isis ]
+attributes:
+  global:
+    af: { ipv4: bool, ipv6: bool }
+    node_sid_offset: { ipv4: int, ipv6: int }
+    protocol: list
+  node:
+    af: { ipv4: bool, ipv6: bool }
+    srgb: { start: int, size: int, dyn_start: int, dyn_size: int }
+    node_sid: { ipv4: int, ipv6: int }
+    protocol: list
+features:
+  af: Address family support
+  protocol: Supported routing protocols
