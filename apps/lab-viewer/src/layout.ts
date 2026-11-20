@@ -294,9 +294,9 @@ export function layoutTopology(
   const coreNames = names.filter((name) => !hosts.has(name));
   const core = orderForMinimalCrossings(coreNames, edges);
   const positions = new Map<string, { x: number; y: number }>();
-  const spacing = 2 * Math.max(34, ...core.map(radius)) + 240;
+  const spacing = 2 * Math.max(34, ...core.map(radius)) + 100;
   // Give links extra horizontal room on wide panels without stretching nodes.
-  const horizontalSpacing = spacing * Math.max(1, Math.min(2, ratio * 0.85));
+  const horizontalSpacing = spacing * Math.max(1, Math.min(1.3, ratio * 0.7));
   const hostDegree = (name: string) => edges.filter(([a, b]) => (a === name && hosts.has(b)) || (b === name && hosts.has(a))).length;
   const score = (order: readonly string[], slots: readonly { x: number; y: number }[]) => {
     const lookup = new Map(order.map((name, i) => [name, slots[i]!]));
@@ -372,12 +372,12 @@ export function layoutTopology(
         leftHosts.some((host, i) => Math.abs(radius(host) - radius(rightHosts[i]!)) > 1e-6)) continue;
     const otherAnchor = positions.get(right)!;
     const maxHostRadius = Math.max(...leftHosts.map(radius));
-    const baseDistance = radius(left) + maxHostRadius + 130;
+    const baseDistance = radius(left) + maxHostRadius + 65;
     for (let extra = 0; extra <= 350; extra += 35) {
       const distance = baseDistance + extra;
       const spread = Math.min(Math.PI / 3, Math.max(Math.PI / 7, 2 * Math.asin(Math.min(0.99, (2 * maxHostRadius + 35) / (2 * distance)))));
       const candidates = leftHosts.flatMap((host, i) => {
-        const angle = (i - (leftHosts.length - 1) / 2) * spread;
+        const angle = leftHosts.length === 1 ? -Math.PI / 4 : (i - (leftHosts.length - 1) / 2) * spread;
         const x = anchor.x - distance * Math.cos(angle), y = anchor.y + distance * Math.sin(angle);
         return [{ name: host, x, y }, { name: rightHosts[i]!, x: otherAnchor.x + distance * Math.cos(angle), y: otherAnchor.y + distance * Math.sin(angle) }];
       });
@@ -397,7 +397,7 @@ export function layoutTopology(
       y: peers.reduce((sum, peer) => sum + positions.get(peer)!.y, 0) / peers.length,
     } : { x: 0, y: 0 };
     const startAngle = Math.hypot(anchor.x, anchor.y) > 1 ? Math.atan2(anchor.y, anchor.x) : 0;
-    const minDistance = Math.max(34, ...peers.map(radius)) + radius(name) + 130;
+    const minDistance = Math.max(34, ...peers.map(radius)) + radius(name) + 65;
     let choice = { x: anchor.x + minDistance, y: anchor.y }, bestScore = Infinity;
     for (let extra = 0; extra <= 350; extra += 35) for (let step = 0; step < 24; step++) {
       const angle = startAngle + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * Math.PI / 12;

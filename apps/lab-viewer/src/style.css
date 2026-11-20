@@ -252,13 +252,13 @@ h2 {
 
 .node text {
   fill: var(--ink);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .node .sub {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -377,4 +377,4 @@ pre {
 .address-list th { color: var(--muted); }
 .address-list td:last-child { font-family: ui-monospace, monospace; }
 
-.node .node-loopback { fill: #bcd8e7; font: 9px ui-monospace, monospace; pointer-events: none; }
+.node .node-loopback { fill: #bcd8e7; font: 10px ui-monospace, monospace; pointer-events: none; }

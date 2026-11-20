@@ -45,6 +45,31 @@ links:
     assert.equal(topology.nodes!.s1!.interfaces!.find((i) => i.ifname === "eth1")?.ipv4, undefined);
   });
 
+  it("builds eBGP sessions using interface local AS numbers alongside iBGP", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+module: [bgp]
+bgp.as: 65000
+nodes:
+  leaf:
+  spine:
+    bgp.rr: true
+links:
+  - leaf:
+      bgp.local_as: 65201
+    spine:
+      bgp.local_as: 65100
+`));
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    const leaf = topology.nodes!.leaf!.bgp!.neighbors as { type: string; name: string; as: number; local_as?: number; ifindex?: number }[];
+    const spine = topology.nodes!.spine!.bgp!.neighbors as typeof leaf;
+    assert.ok(leaf.some((n) => n.type === "ibgp" && n.name === "spine"));
+    assert.deepEqual(leaf.filter((n) => n.type === "ebgp").map(({ name, as, local_as, ifindex }) => ({ name, as, local_as, ifindex })),
+      [{ name: "spine", as: 65100, local_as: 65201, ifindex: 1 }]);
+    assert.deepEqual(spine.filter((n) => n.type === "ebgp").map(({ name, as, local_as, ifindex }) => ({ name, as, local_as, ifindex })),
+      [{ name: "leaf", as: 65201, local_as: 65100, ifindex: 1 }]);
+  });
+
   it("normalizes numeric OSPF areas before validation and propagation", () => {
     const topo = loadTopologyString(`
 defaults.device: none

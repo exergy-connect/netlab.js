@@ -234,8 +234,8 @@ function renderGraph(topology: Topology): void {
   const radiusFor = (name: string) => {
     const loopbacks = loopbacksFor(name);
     const sviCount = (topology.nodes![name]!.interfaces ?? []).filter((intf) => intf.type === "svi").length;
-    return Math.max(34, labelFor(name).length * 4, detailsFor(name).length * 3.4 + 8,
-      ...loopbacks.map((address) => address.length * 3.1 + 12), loopbacks.length ? 32 + loopbacks.length * 7 : 0,
+    return Math.max(34, labelFor(name).length * 5.2, detailsFor(name).length * 4.1 + 8,
+      ...loopbacks.map((address) => address.length * 3.5 + 12), loopbacks.length ? 32 + loopbacks.length * 7 : 0,
       sviCount ? Math.max(52, sviCount * 9 + 16) : 0);
   };
   const aspect = graph.clientWidth / Math.max(1, graph.clientHeight);

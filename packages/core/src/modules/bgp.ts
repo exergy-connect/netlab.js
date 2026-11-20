@@ -202,9 +202,19 @@ function buildEbgpSessions(
     for (const ngbIf of intf.neighbors ?? []) {
       const peer = topology.nodes?.[ngbIf.node!];
       if (!peer) continue;
-      const peerAs = Number((peer.bgp as JsonObject | undefined)?.as);
+      const peerBgp = peer.bgp as JsonObject | undefined;
+      const peerAs = Number(peerBgp?.as);
       if (!Number.isFinite(peerAs) || peerAs <= 0) continue;
-      if (peerAs === nodeAs) continue;
+      // Interface local-AS settings determine the actual AS numbers on this link.
+      // Match the peer's interface by link identity so parallel links stay distinct.
+      const peerIntf = peer.interfaces?.find((candidate) =>
+        intf.linkindex != null && candidate.linkindex === intf.linkindex &&
+        (ngbIf.ifname == null || candidate.ifname === ngbIf.ifname));
+      const localSetting = (intf.bgp as JsonObject | undefined)?.local_as ?? bgp.local_as;
+      const peerSetting = (peerIntf?.bgp as JsonObject | undefined)?.local_as ?? peerBgp?.local_as;
+      const localAs = Number(localSetting ?? nodeAs);
+      const remoteAs = Number(peerSetting ?? peerAs);
+      if (!Number.isFinite(localAs) || !Number.isFinite(remoteAs) || remoteAs <= 0 || localAs === remoteAs) continue;
 
       const afData: JsonObject = {};
       if (typeof ngbIf.ipv4 === "string") afData.ipv4 = ngbIf.ipv4;
@@ -212,7 +222,8 @@ function buildEbgpSessions(
       const extra: JsonObject = { ifindex: intf.ifindex ?? 0 };
       const nb = bgpNeighbor(peer, afData, "ebgp", sessions, extra);
       if (!nb) continue;
-      nb.as = peerAs;
+      nb.as = remoteAs;
+      if (localSetting !== undefined) nb.local_as = localAs;
       neighbors.push(nb);
     }
   }
