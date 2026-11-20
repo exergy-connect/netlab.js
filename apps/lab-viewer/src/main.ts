@@ -8,6 +8,7 @@ import {
   collectEdges,
   orderForMinimalCrossings,
 } from "./layout";
+import { fetchRepository, repositories } from "./catalog";
 import "./style.css";
 
 declare const __BUILD_TIME__: string;
@@ -40,6 +41,9 @@ app.innerHTML = `
   </header>
   <main>
     <section class="editor">
+      <label for="examples">GitHub topologies</label>
+      <select id="examples" disabled><option value="">Loading topologies…</option></select>
+      <p id="catalog-status" role="status"></p>
       <label for="src">Topology YAML</label>
       <textarea id="src" spellcheck="false" rows="1"></textarea>
       <div class="actions">
@@ -71,6 +75,8 @@ app.innerHTML = `
   </main>
 `;
 
+const examples = app.querySelector<HTMLSelectElement>("#examples")!;
+const catalogStatus = app.querySelector<HTMLParagraphElement>("#catalog-status")!;
 const src = app.querySelector<HTMLTextAreaElement>("#src")!;
 const out = app.querySelector<HTMLPreElement>("#out")!;
 const status = app.querySelector<HTMLSpanElement>("#status")!;
@@ -240,7 +246,39 @@ function run(): void {
   }
 }
 
-src.addEventListener("input", fitTextarea);
+let sourceGeneration = 0;
+examples.addEventListener("change", async () => {
+  const generation = ++sourceGeneration;
+  if (!examples.value) return;
+  catalogStatus.textContent = "Loading topology…";
+  try {
+    const response = await fetch(examples.value);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const source = await response.text();
+    if (generation !== sourceGeneration) return;
+    src.value = source;
+    fitTextarea();
+    catalogStatus.textContent = "Topology loaded. Edit it or select Transform.";
+  } catch (error) {
+    if (generation !== sourceGeneration) return;
+    catalogStatus.textContent = `Could not load topology: ${error instanceof Error ? error.message : String(error)}. Choose it again to retry.`;
+    examples.value = "";
+  }
+});
+src.addEventListener("input", () => { ++sourceGeneration; examples.value = ""; fitTextarea(); });
+void Promise.allSettled(repositories.map(repo => fetchRepository(repo))).then(results => {
+  examples.replaceChildren(new Option("Choose a topology…", ""));
+  const errors: string[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "rejected") { errors.push(String(result.reason)); return; }
+    const group = document.createElement("optgroup");
+    group.label = repositories[index].title;
+    for (const entry of result.value) group.append(new Option(entry.path, entry.url));
+    examples.append(group);
+  });
+  examples.disabled = examples.options.length <= 1;
+  catalogStatus.textContent = errors.length ? `Some lists could not load: ${errors.join("; ")}` : "Select a topology from GitHub.";
+});
 runBtn.addEventListener("click", run);
 fullJsonBox.addEventListener("change", () => renderJson(lastResult));
 fitTextarea();

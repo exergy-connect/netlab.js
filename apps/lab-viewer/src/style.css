@@ -75,6 +75,21 @@ label {
   margin-bottom: 0.4rem;
 }
 
+select {
+  width: 100%;
+  background: #0c1015;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem;
+}
+
+#catalog-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
 textarea {
   display: block;
   width: 100%;
