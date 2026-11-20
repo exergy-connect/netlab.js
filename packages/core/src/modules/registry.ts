@@ -17,6 +17,7 @@ import * as ospfMod from "./ospf.js";
 import * as isisMod from "./isis.js";
 import * as bgpMod from "./bgp.js";
 import * as mplsMod from "./mpls.js";
+import * as lagMod from "./lag.js";
 import * as srMod from "./sr.js";
 import * as evpnMod from "./evpn.js";
 import * as routingMod from "./routing.js";
@@ -55,6 +56,7 @@ function asHooks(m: {
 }
 
 const MODULES: ModuleHooks[] = [
+  asHooks(lagMod),
   asHooks(vlanMod),
   asHooks(gatewayMod),
   asHooks(vrfMod),

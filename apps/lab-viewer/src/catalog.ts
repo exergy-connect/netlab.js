@@ -3,7 +3,7 @@ export const repositories = [
   { title: "BGP basic labs", url: "https://github.com/bgplab/bgplab/tree/master", include: ["basic/*/topology.yml"] },
   { title: "netlab integration", numericFilenamesOnly: true, url: "https://github.com/ipspace/netlab/tree/dev/tests/integration", include: [
     "bgp/*.{yml,yaml}", "evpn/*.{yml,yaml}", "evpn.multihoming/*.{yml,yaml}",
-    "gateway/*.{yml,yaml}", "isis/*.{yml,yaml}", "mpls/*.{yml,yaml}",
+    "gateway/*.{yml,yaml}", "isis/*.{yml,yaml}", "lag/*.{yml,yaml}", "mpls/*.{yml,yaml}",
     "ospf/*/*.{yml,yaml}", "vlan/*.{yml,yaml}", "vxlan/*.{yml,yaml}",
   ] },
 ];

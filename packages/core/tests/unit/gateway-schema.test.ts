@@ -45,3 +45,18 @@ links:
   const errors = transform(input).diagnostics.list().filter(d => d.severity === "error");
   assert.ok(errors.some(d => d.module === "xyang" && d.message.includes("unicast")));
 });
+
+it("validates gateway IP addresses, prefixes, and anycast MAC addresses", () => {
+  for (const [ipv4, ipv6, mac] of [
+    ["192.0.2.1", "2001:db8::1", "02:00:ca:fe:00:ff"],
+    ["192.0.2.1/24", "2001:db8::1/64", "0200.cafe.00ff"],
+  ]) {
+    const input = loadTopologyString(`defaults.device: frr\nmodule: [gateway]\ngateway: { ipv4: '${ipv4}', ipv6: '${ipv6}', anycast: { mac: '${mac}' } }\nnodes: [r1]\n`);
+    assert.deepEqual(transform(input).diagnostics.list().filter(d => d.severity === "error"), []);
+  }
+  for (const [field, value] of [["ipv4", "999.2.3.4"], ["ipv4", "192.0.2.1/33"], ["ipv6", "not-an-ip"], ["ipv6", "2001:db8::1/129"], ["anycast.mac", "invalid"]]) {
+    const input = loadTopologyString(`defaults.device: frr\nmodule: [gateway]\ngateway.${field}: '${value}'\nnodes: [r1]\n`);
+    const errors = transform(input).diagnostics.list().filter(d => d.module === "xyang" && d.severity === "error");
+    assert.ok(errors.length, `accepted invalid ${field}: ${value}`);
+  }
+});

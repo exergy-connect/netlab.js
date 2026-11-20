@@ -4,6 +4,7 @@ module netlab-gateway {
   prefix gw;
 
   import netlab-topology { prefix nt; }
+  import netlab-types { prefix ntype; }
   import netlab-vlan { prefix vlan; }
 
   description "Gateway redundancy settings and derived interface data.";
@@ -13,10 +14,10 @@ module netlab-gateway {
     leaf enabled { type boolean; description "Validation representation of boolean shorthand."; }
     leaf protocol { type enumeration { enum anycast; enum vrrp; } }
     leaf id { type int32; }
-    leaf ipv4 { type string; }
-    leaf ipv6 { type string; }
+    leaf ipv4 { type ntype:ipv4-address-or-prefix; }
+    leaf ipv6 { type ntype:ipv6-address-or-prefix; }
     container anycast {
-      leaf mac { type string; }
+      leaf mac { type ntype:unicast-mac-address; }
       leaf unicast { type boolean; }
     }
     container vrrp {

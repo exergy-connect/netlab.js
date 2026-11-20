@@ -12,6 +12,7 @@ export function toYangInstance(topology: Topology): JsonObject {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
     adaptMpls(n);
     adaptGateway(n);
+    adaptBgp(n);
     if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
@@ -48,15 +49,11 @@ export function toYangInstance(topology: Topology): JsonObject {
     }
     if (l.ospf === false || l.ospf === true) delete l.ospf;
     if (l.linkindex === undefined) l.linkindex = idx + 1;
-    // Runtime uses qualified internal names; map onto host-module leaves for xYang
-    const qName = l[INTERNAL_LINKNAME];
-    if (typeof qName === "string") {
-      l._linkname = qName;
-      delete l[INTERNAL_LINKNAME];
-    } else if (typeof l._linkname === "string") {
-      // already local
+    // Keep the diagnostic link name in the internal module namespace.
+    if (typeof l._linkname === "string" && l[INTERNAL_LINKNAME] === undefined) {
+      l[INTERNAL_LINKNAME] = l._linkname;
     }
-    dequalifyInternalKeys(l);
+    delete l._linkname;
     return l;
   });
 
@@ -79,19 +76,26 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.name !== undefined) topoObj.name = topology.name;
   if (topology.provider !== undefined) topoObj.provider = topology.provider;
   if (topology.module !== undefined) topoObj.module = topology.module;
-  if (topology.defaults !== undefined) topoObj.defaults = topology.defaults;
+  if (topology.defaults && typeof topology.defaults === "object" && !Array.isArray(topology.defaults)) {
+    const device = (topology.defaults as JsonObject).device;
+    if (device !== undefined) topoObj.defaults = { device };
+  }
   if (groups) topoObj.groups = groups;
   if (addressing) topoObj.addressing = addressing;
   if (topology.mpls !== undefined) {
     topoObj.mpls = topology.mpls;
     adaptMpls(topoObj);
   }
+  if (topology.lag !== undefined) topoObj.lag = topology.lag;
   if (topology.gateway !== undefined) {
     topoObj.gateway = topology.gateway;
     adaptGateway(topoObj);
   }
   if (topology.ospf) topoObj.ospf = topology.ospf;
-  if (topology.bgp) topoObj.bgp = topology.bgp;
+  if (topology.bgp) {
+    topoObj.bgp = topology.bgp;
+    adaptBgp(topoObj);
+  }
   if (topology.routing) topoObj.routing = topology.routing;
   if (topology.isis) topoObj.isis = topology.isis;
   if (topology.vxlan) topoObj.vxlan = topology.vxlan;
@@ -184,4 +188,24 @@ function adaptMpls(parent: JsonObject, link = false): void {
 /** Represent boolean gateway shorthand as a typed container during validation. */
 function adaptGateway(parent: JsonObject): void {
   if (typeof parent.gateway === "boolean") parent.gateway = { enabled: parent.gateway };
+}
+
+/** Adapt keyed BGP dictionaries and import shorthand to modeled lists. */
+function adaptBgp(parent: JsonObject): void {
+  const raw = parent.bgp;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+  const bgp: JsonObject = { ...raw as JsonObject };
+  parent.bgp = bgp;
+  for (const key of ["as_list", "confederation", "import"]) {
+    const value = bgp[key];
+    if (key === "import" && Array.isArray(value)) {
+      bgp[key] = value.map(item => typeof item === "string" ? { protocol: item } : item);
+      continue;
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    bgp[key] = Object.entries(value).map(([name, setting]) => ({
+      ...(setting && typeof setting === "object" && !Array.isArray(setting) ? setting : key === "import" && setting !== null ? { enabled: setting } : {}),
+      ...(key === "import" ? { protocol: name } : { asn: /^\d+$/.test(name) ? Number(name) : name }),
+    }));
+  }
 }

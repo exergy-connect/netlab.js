@@ -1,0 +1,27 @@
+module netlab-lag {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:lag";
+  prefix lag;
+  import netlab-topology { prefix nt; }
+  description "Link aggregation settings.";
+  revision 2026-11-20 { description "LAG attributes."; }
+  grouping attributes {
+    leaf ifindex { type uint32; }
+    leaf lacp { type enumeration { enum off; enum slow; enum fast; } }
+    leaf lacp_mode { type enumeration { enum active; enum passive; } }
+    leaf mode { type string; }
+    leaf parent { type string; }
+    leaf _parentindex { type uint32; }
+    leaf-list members { type string; }
+    container mlag {
+      leaf peergroup { type union { type boolean; type uint32; } }
+      leaf mac { type string; }
+    }
+  }
+  augment "/nt:topology" { container lag { uses attributes; } }
+  augment "/nt:topology/nt:groups" { container lag { uses attributes; } }
+  augment "/nt:topology/nt:nodes" { container lag { uses attributes; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" { container lag { uses attributes; } }
+  augment "/nt:topology/nt:links" { container lag { uses attributes; } }
+  augment "/nt:topology/nt:links/nt:interfaces" { container lag { uses attributes; } }
+}

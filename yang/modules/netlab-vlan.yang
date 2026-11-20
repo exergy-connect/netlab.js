@@ -77,6 +77,10 @@ module netlab-vlan {
     }
   }
 
+  augment "/nt:topology/nt:groups" {
+    container vlan { leaf mode { type string; } }
+  }
+
   augment "/nt:topology/nt:nodes" {
     container vlan {
       description "Node-level VLAN module state (e.g. max_bridge_group).";

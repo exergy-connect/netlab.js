@@ -215,7 +215,12 @@ export function transformLinks(topology: Topology): void {
       const isVirtual = link.type === "loopback";
       let ifindex: number;
       let ifname: string;
-      if (link.type === "vlan_member") {
+      if (link.type === "lag") {
+        ifindex = nextVirtualIfIndex(node, "loopback");
+        const lagId = Number((ifdata.lag as JsonObject | undefined)?.ifindex ?? 1);
+        ifname = String((def as JsonObject).lag_interface_name ?? "bond{lag.ifindex}").replace("{lag.ifindex}", String(lagId));
+        ifdata.virtual_interface = true;
+      } else if (link.type === "vlan_member") {
         ifindex = nextIfIndex(node);
         ifname = `vlan-member${ifindex}`;
         ifdata.virtual_interface = true;

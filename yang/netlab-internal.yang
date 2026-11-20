@@ -22,7 +22,7 @@ module netlab-internal {
       type string;
       description "Stable diagnostic link name (Netlab _linkname).";
     }
-    must "/nt:topology/nt:stage = 'user_input' or _linkname" {
+    must "/nt:topology/nt:stage = 'user_input' or ni:_linkname" {
       error-message "netlab-internal:_linkname is required after user_input stage";
       error-app-tag "MISSING";
     }

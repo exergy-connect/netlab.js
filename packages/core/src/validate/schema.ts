@@ -22,7 +22,7 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
   const includePaths = [yangDir, path.join(yangDir, "modules")];
 
   // One parser cache so modular augment modules mutate the shared host schema.
-  const parser = new YangParser({ include_path: includePaths, expand_uses: true });
+  const parser = new YangParser({ includePath: includePaths, expandUses: true });
   const module = parser.parseFile(topologyPath);
 
   for (const extra of [
@@ -36,6 +36,7 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
     "modules/netlab-vxlan.yang",
     "modules/netlab-evpn.yang",
     "modules/netlab-mpls.yang",
+    "modules/netlab-lag.yang",
   ]) {
     const extraPath = path.join(yangDir, extra);
     try {
