@@ -33,6 +33,8 @@ module netlab-bgp {
   }
 
   grouping bgp-common {
+    leaf passive { type boolean; }
+    anydata session;
     anydata multihop;
     leaf advertise_loopback { type boolean; }
     leaf next_hop_self { type boolean; }

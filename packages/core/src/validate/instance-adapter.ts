@@ -166,6 +166,7 @@ function adaptVrfDefinition(item: JsonObject): void {
     item.loopback = { [value.includes(":") ? "ipv6" : "ipv4"]: value };
   }
   if (typeof item.bgp === "boolean") item.bgp = { enabled: item.bgp };
+  if (typeof item.ospf === "boolean") item.ospf = { enabled: item.ospf };
   adaptBgp(item);
   adaptRoutingImport(item, "ospf");
 }
@@ -225,7 +226,9 @@ function adaptMpls(parent: JsonObject, link = false): void {
     else if (Array.isArray(setting) && key !== "ldp") mpls[key] = { sessions: setting };
   }
   if ("6pe" in mpls) {
-    mpls._6pe = mpls["6pe"];
+    const value = mpls["6pe"];
+    mpls._6pe = typeof value === "boolean" ? { enabled: value }
+      : Array.isArray(value) ? { sessions: value } : value;
     delete mpls["6pe"];
   }
 }

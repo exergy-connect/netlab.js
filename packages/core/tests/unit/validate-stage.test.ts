@@ -348,3 +348,30 @@ it("validates OSPF endpoint attributes, areas, defaults and timers", () => {
     assert.equal(validateAt(invalid, "user_input", { yangDir }).ok, false);
   }
 });
+
+it("accepts integration prefix and protocol shorthand at input", () => {
+  const result = transform(loadTopologyString(`
+defaults.device: frr
+module: [vlan, vrf, ospf, bgp, mpls]
+bgp.as: 65000
+prefix:
+  source: { ipv4: 172.16.33.0/24 }
+vlans:
+  access: { prefix: source }
+vrfs:
+  tenant: { ospf: false }
+nodes:
+  a:
+    bgp.passive: true
+    bgp.session.apply.ibgp: [passive]
+    mpls.6pe: true
+  b:
+links:
+  - a:
+    b:
+    prefix: 172.16.1.0/24
+`), { yangDir });
+  assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
+  assert.deepEqual(result.topology.links?.[0]?.prefix?.ipv4, "172.16.1.0/24");
+  assert.deepEqual((result.topology.vlans?.access as any)?.prefix?.ipv4, "172.16.33.0/24");
+});

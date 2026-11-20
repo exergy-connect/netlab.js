@@ -61,6 +61,7 @@ module netlab-ospf {
   augment "/nt:topology" { container ospf { uses ospf-common; } }
 
   grouping ospf-node-attrs {
+    leaf enabled { type boolean; }
     uses ospf-common;
     uses ntype:routing-imports;
     leaf router_id { type string; }

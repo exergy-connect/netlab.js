@@ -1,3 +1,4 @@
+import ipaddr from "ipaddr.js";
 import type { Topology, TransformContext } from "../types.js";
 import { DiagnosticCollector } from "../diagnose/collector.js";
 import { loadDevices } from "../devices/registry.js";
@@ -57,6 +58,19 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   copyGroupData(topology);
   applyNodeDeviceDefaults(topology, diagnostics);
   expandVrfLinks(topology, ctx);
+  const resolvePrefix = (name: string) => {
+    if (ipaddr.isValidCIDR(name)) return { [ipaddr.parseCIDR(name)[0].kind()]: name };
+    const prefixes = topology.prefix;
+    const value = prefixes && typeof prefixes === "object" && !Array.isArray(prefixes) ? prefixes[name] : undefined;
+    return value && typeof value === "object" && !Array.isArray(value) ? structuredClone(value) : undefined;
+  };
+  for (const vlan of Object.values(topology.vlans ?? {})) {
+    if (vlan && typeof vlan === "object" && !Array.isArray(vlan) && typeof vlan.prefix === "string") {
+      const value = resolvePrefix(vlan.prefix);
+      if (value) vlan.prefix = value;
+      else diagnostics.error({ module: "vlan", code: "VALUE", category: "VALUE", message: `Unknown named prefix ${vlan.prefix}` });
+    }
+  }
   createVlanAccessLinks(topology, ctx);
   for (const node of Object.values(topology.nodes)) {
     if ((node as Record<string, unknown>).loopback === true) node.loopback = {};
@@ -64,9 +78,8 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   for (const link of topology.links ?? []) {
     if (typeof link.prefix !== "string") continue;
     const name = link.prefix;
-    const prefixes = topology.prefix;
-    const value = prefixes && typeof prefixes === "object" && !Array.isArray(prefixes) ? prefixes[name] : undefined;
-    if (value && typeof value === "object" && !Array.isArray(value)) link.prefix = structuredClone(value);
+    const value = resolvePrefix(name);
+    if (value) link.prefix = value;
     else diagnostics.error({ module: "links", code: "VALUE", category: "VALUE", message: `Unknown named prefix ${name}` });
   }
 
