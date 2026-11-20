@@ -25,7 +25,7 @@ export type ModuleDef = JsonObject & {
   attributes?: JsonObject & { node_copy?: string[] };
 };
 
-const SUPPORTED = ["vlan", "vrf", "vxlan", "ospf", "isis", "bgp", "evpn"] as const;
+const SUPPORTED = ["vlan", "vrf", "vxlan", "ospf", "isis", "bgp", "evpn", "mpls"] as const;
 
 let cache: Record<string, ModuleDef> | undefined;
 

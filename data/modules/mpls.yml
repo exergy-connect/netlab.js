@@ -1,0 +1,10 @@
+# MPLS label distribution settings
+transform_after: [ ospf, isis, bgp ]
+config_after: [ ospf, isis, bgp ]
+attributes:
+  global:
+    ldp: bool
+  node:
+    ldp: bool
+  interface:
+    ldp: bool

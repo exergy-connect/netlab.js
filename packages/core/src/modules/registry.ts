@@ -15,6 +15,7 @@ import * as vxlanMod from "./vxlan.js";
 import * as ospfMod from "./ospf.js";
 import * as isisMod from "./isis.js";
 import * as bgpMod from "./bgp.js";
+import * as mplsMod from "./mpls.js";
 import * as evpnMod from "./evpn.js";
 import * as routingMod from "./routing.js";
 
@@ -58,6 +59,7 @@ const MODULES: ModuleHooks[] = [
   asHooks(ospfMod),
   asHooks(isisMod),
   asHooks(bgpMod),
+  asHooks(mplsMod),
   asHooks(evpnMod),
   asHooks(routingMod),
 ];
