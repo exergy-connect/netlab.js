@@ -7,6 +7,7 @@ export function collectEdges(topology: Topology): Edge[] {
   const seen = new Set<string>();
   const edges: Edge[] = [];
   for (const link of topology.links ?? []) {
+    if (link.type === "vlan_member") continue;
     const ifaces = link.interfaces ?? [];
     if (ifaces.length < 2) continue;
     for (let i = 0; i < ifaces.length; i++) {

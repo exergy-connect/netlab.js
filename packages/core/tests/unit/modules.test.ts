@@ -14,6 +14,37 @@ import { loadTopologyString } from "../../src/load/load.js";
 import { transform } from "../../src/transform/orchestrator.js";
 
 describe("protocol modules", () => {
+  it("creates routed VLAN subinterfaces on mixed trunks", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: frr
+module: [vlan]
+nodes: [s1, s2]
+vlans:
+  red: { mode: bridge }
+  blue: { mode: route, id: 123 }
+links:
+  - s1:
+    s2:
+    vlan.trunk: [red, blue]
+`));
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    const a = topology.nodes!.s1!.interfaces!.find((i) => i.type === "vlan_member")!;
+    const b = topology.nodes!.s2!.interfaces!.find((i) => i.type === "vlan_member")!;
+    assert.equal(a.ifname, "eth1.123");
+    assert.equal(a.parent_ifname, "eth1");
+    assert.equal(a.vlan?.name, "blue");
+    assert.equal(a.vlan?.access_id, 123);
+    assert.equal(a.neighbors?.[0]?.ifname, b.ifname);
+    assert.ok(typeof a.ipv4 === "string" && typeof b.ipv4 === "string" && a.ipv4 !== b.ipv4);
+    const red = topology.nodes!.s1!.interfaces!.find((i) => i.ifname === "eth1.1000")!;
+    assert.equal(red.vlan?.access, "red");
+    assert.equal(red.parent_ifname, "eth1");
+    assert.equal(red.neighbors?.[0]?.ifname, "eth1.1000");
+    assert.ok(topology.nodes!.s1!.interfaces!.some((i) => i.type === "svi" && i.vlan?.name === "red"));
+    assert.equal(topology.nodes!.s1!.interfaces!.some((i) => i.type === "svi" && i.vlan?.name === "blue"), false);
+    assert.equal(topology.nodes!.s1!.interfaces!.find((i) => i.ifname === "eth1")?.ipv4, undefined);
+  });
+
   it("normalizes numeric OSPF areas before validation and propagation", () => {
     const topo = loadTopologyString(`
 defaults.device: none

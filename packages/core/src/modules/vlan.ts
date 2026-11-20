@@ -1,5 +1,5 @@
 import type { ModuleHooks } from "./registry.js";
-import type { Interface, JsonObject, Neighbor, Node, Topology, TransformContext } from "../types.js";
+import type { Interface, JsonObject, Link, Neighbor, Node, Topology, TransformContext } from "../types.js";
 import { INTERNAL_LINKNAME } from "../types.js";
 import { deepMerge } from "../data/merge.js";
 import { getDevice } from "../devices/registry.js";
@@ -9,6 +9,7 @@ import {
   getUniqueIfindex,
 } from "../links/links.js";
 import { formatNamedIfName } from "../nodes/nodes.js";
+import { allocateLinkPrefix } from "../addressing/ipam.js";
 
 export const name = "vlan";
 
@@ -174,6 +175,99 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
   if (topology.vlans && !topology.links) topology.links = [];
   assignVlanIds(topology);
   createVlanAccessLinks(topology, ctx);
+  allocateAccessVlanPrefixes(topology);
+  createTrunkLinks(topology);
+}
+
+/** Allocate one shared subnet for bridged VLAN access links. */
+function allocateAccessVlanPrefixes(topology: Topology): void {
+  for (const link of topology.links ?? []) {
+    const access = (link.vlan as JsonObject | undefined)?.access;
+    if (typeof access !== "string") continue;
+    const def = vlanDict(topology)[access];
+    if (!def) continue;
+    if ((link as JsonObject).pool === undefined) (link as JsonObject).pool = "lan";
+    if (def.mode === "route" || def.prefix !== undefined) continue;
+    const allocation: Link = { type: "lan", pool: "lan", interfaces: [] };
+    allocateLinkPrefix(topology, allocation);
+    if (allocation.prefix) def.prefix = { ...allocation.prefix, allocation: "id_based" };
+  }
+}
+
+/** Expand trunk VLANs into logical links, preserving the physical parent. */
+function createTrunkLinks(topology: Topology): void {
+  const links = topology.links ?? [];
+  for (const parent of [...links]) {
+    const parentVlan = parent.vlan as JsonObject | undefined;
+    const members = parent.interfaces ?? [];
+    const trunkNames = (vlan: JsonObject | undefined): string[] => {
+      const trunk = vlan?.trunk;
+      return Array.isArray(trunk) ? trunk.filter((v): v is string => typeof v === "string")
+        : trunk && typeof trunk === "object" ? Object.keys(trunk) : [];
+    };
+    const names = new Set([...trunkNames(parentVlan), ...members.flatMap((i) => trunkNames(i.vlan as JsonObject | undefined))]);
+    if (!names.size) continue;
+    if (parent.prefix === undefined) (parent as JsonObject).prefix = false;
+    for (const name of [...names].sort()) {
+      if (parentVlan?.native === name) continue;
+      const participating = members.filter((intf) => {
+        const node = topology.nodes?.[String(intf.node)];
+        const vlan = intf.vlan as JsonObject | undefined;
+        const effective = vlan?.trunk === undefined ? trunkNames(parentVlan) : trunkNames(vlan);
+        const def = (node?.vlans as Record<string, JsonObject> | undefined)?.[name] ?? vlanDict(topology)[name];
+        return node?.module?.includes("vlan") && effective.includes(name) && Boolean(def);
+      });
+      if (!participating.length) continue;
+      const def = vlanDict(topology)[name] ?? (topology.nodes?.[String(participating[0]!.node)]?.vlans as Record<string, JsonObject> | undefined)?.[name];
+      const id = def?.id;
+      if (typeof id !== "number") continue;
+      const mode = String(def?.mode ?? "irb");
+      const link: Link = {
+        linkindex: getNextLinkindex(topology), type: "vlan_member", parentindex: parent.linkindex ?? 0,
+        vlan_name: name, ...(mode === "bridge" ? { prefix: false as never } : def?.prefix && typeof def.prefix === "object" && !Array.isArray(def.prefix) ? { prefix: structuredClone(def.prefix) } : {}),
+        interfaces: participating.map((intf) => ({ node: String(intf.node), vlan: { access: name, access_id: id, mode }, _vlan_mode: mode })),
+      };
+      links.push(link);
+    }
+  }
+}
+
+function renameTrunkInterfaces(topology: Topology, ctx: TransformContext): void {
+  for (const node of Object.values(topology.nodes ?? {})) {
+    for (const intf of node.interfaces ?? []) {
+      if (intf.type !== "vlan_member") continue;
+      const parent = node.interfaces?.find((candidate) => candidate.linkindex === intf.parentindex && candidate.type !== "vlan_member");
+      const features = (getDevice(String(node.device ?? "none")).features as JsonObject | undefined)?.vlan as JsonObject | undefined;
+      if (!parent || typeof features?.subif_name !== "string") {
+        ctx.diagnostics.error({ code: "VALUE", category: "VALUE", module: "vlan", message: `Cannot create routed VLAN subinterface on ${node.name}: missing parent or device support` });
+        continue;
+      }
+      const id = intf.vlan?.access_id;
+      const index = Number((parent as JsonObject)._vlan_subif_index ?? 0) + 1;
+      (parent as JsonObject)._vlan_subif_index = index;
+      intf.ifname = formatNamedIfName(features.subif_name, { ifname: parent.ifname, subif_index: index, "vlan.access_id": typeof id === "number" ? id : undefined });
+      if (parent.ifindex !== undefined) intf.parent_ifindex = parent.ifindex;
+      if (parent.ifname !== undefined) intf.parent_ifname = parent.ifname;
+      intf.virtual_interface = true;
+      if (intf.vlan?.mode === "bridge") delete intf.vlan.mode;
+      if (intf.vlan?.mode === "route" && intf.vlan.access !== undefined) {
+        const { access, ...vlan } = intf.vlan;
+        intf.vlan = { ...vlan, name: access, routed_link: true };
+      }
+      const link = topology.links?.find((candidate) => candidate.linkindex === intf.linkindex);
+      const end = link?.interfaces?.find((candidate) => candidate.node === node.name);
+      if (end) end.ifname = intf.ifname;
+    }
+  }
+  for (const node of Object.values(topology.nodes ?? {})) for (const intf of node.interfaces ?? []) {
+    delete (intf as JsonObject)._vlan_subif_index;
+    if (intf.type !== "vlan_member") continue;
+    const saved = (intf as JsonObject)._vlan_saved_neighbors as Neighbor[] | undefined;
+    for (const neighbors of [intf.neighbors, saved]) for (const neighbor of neighbors ?? []) {
+      const peer = topology.nodes?.[String(neighbor.node)]?.interfaces?.find((candidate) => candidate.linkindex === intf.linkindex);
+      if (peer?.ifname) neighbor.ifname = peer.ifname;
+    }
+  }
 }
 
 export function link_pre_transform(
@@ -365,6 +459,7 @@ function createSviInterfaces(node: Node, topology: Topology, ctx: TransformConte
 
   for (let ifidx = 0; ifidx < initialLen; ifidx++) {
     const ifdata = ifaces[ifidx]!;
+    if (ifdata.type === "vlan_member" && ifdata.vlan?.mode === "route") continue;
     const vlanObj = ifdata.vlan as JsonObject | undefined;
     if (!vlanObj) continue;
     const accessVlan = (vlanObj.access ?? vlanObj.native) as string | undefined;
@@ -437,7 +532,7 @@ function createSviInterfaces(node: Node, topology: Topology, ctx: TransformConte
       (ifdata as JsonObject)._vlan_saved_neighbors = ifdata.neighbors;
     }
     for (const attr of Object.keys(ifdata as JsonObject)) {
-      if (attr.includes("_vlan_saved")) continue;
+      if (attr.includes("_vlan_saved") || (ifdata.type === "vlan_member" && attr === "linkindex")) continue;
       if (!skipIfattr.has(attr)) delete (ifdata as JsonObject)[attr];
     }
     ifdata.vlan = { ...(ifdata.vlan as JsonObject), access_id: vlanData.id, access: accessVlan };
@@ -498,6 +593,7 @@ export function module_post_link_transform(topology: Topology, ctx: TransformCon
     }
     createSviInterfaces(node, topology, ctx);
   }
+  renameTrunkInterfaces(topology, ctx);
   for (const node of Object.values(topology.nodes ?? {})) {
     if (!(node.module ?? []).includes("vlan")) continue;
     setSviNeighborList(node, topology);

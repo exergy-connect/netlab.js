@@ -341,7 +341,9 @@ function renderGraph(topology: Topology): void {
   // deduplicated edges used for layout.
   const pairs = new Map<string, number>();
   const represented = new Set<unknown>();
+  const interfacePositions = new Map<unknown, { x: number; y: number }>();
   for (const link of topology.links ?? []) {
+    if (link.type === "vlan_member") continue;
     const ends = (link.interfaces ?? []).filter((end) => end.node && pos.has(end.node));
     if (ends.length === 1) {
       const end = ends[0]!;
@@ -398,9 +400,10 @@ function renderGraph(topology: Topology): void {
         ) ?? end;
         represented.add(intf);
         const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
+        interfacePositions.set(intf, { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
         interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
         interfaceLayer.append(bubble);
-        decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], intf.type === "svi");
+        decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], (intf.type === "svi" || intf.type === "vlan_member"));
       }
     }
   }
@@ -421,18 +424,61 @@ function renderGraph(topology: Topology): void {
       bgpLayer.append(svg("path", { d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`, class: "bgp-ibgp" }));
     }
   }
+  const children: { name: string; intf: NonNullable<Topology["nodes"]>[string]["interfaces"] extends (infer I)[] | undefined ? I : never; parent: unknown }[] = [];
   for (const name of nodes) {
     const p = pos.get(name)!;
-    const remaining = (topology.nodes![name]!.interfaces ?? []).filter((intf) => !represented.has(intf));
+    const interfaces = topology.nodes![name]!.interfaces ?? [];
+    const parentOf = (intf: typeof interfaces[number]) => interfaces.find((candidate) => candidate !== intf && (
+      (intf.parent_ifindex != null && candidate.ifindex === intf.parent_ifindex) ||
+      (typeof intf.parent_ifname === "string" && candidate.ifname === intf.parent_ifname)
+    ));
+    const remaining = interfaces.filter((intf) => !represented.has(intf));
+    const standalone = remaining.filter((intf) => !parentOf(intf));
     const outward = Math.atan2(p.y - 180, p.x - 320);
-    remaining.forEach((intf, index) => {
-      const angle = outward + (index - (remaining.length - 1) / 2) * 0.35;
+    standalone.forEach((intf, index) => {
+      const angle = outward + (index - (standalone.length - 1) / 2) * 0.35;
       const distance = radiusFor(name) + 14;
-      const bubble = svg("circle", { cx: p.x + distance * Math.cos(angle), cy: p.y + distance * Math.sin(angle), r: 7, class: "interface-bubble" });
+      const point = { x: p.x + distance * Math.cos(angle), y: p.y + distance * Math.sin(angle) };
+      interfacePositions.set(intf, point);
+      const bubble = svg("circle", { cx: point.x, cy: point.y, r: 7, class: "interface-bubble" });
       interactive(bubble, `Interface ${name} · ${intf.ifname ?? "unnamed"}`, intf);
       interfaceLayer.append(bubble);
-      decorateVlan(bubble, vlanNames(intf), intf.type === "svi");
+      decorateVlan(bubble, vlanNames(intf), intf.type === "svi" || intf.type === "vlan_member");
     });
+    for (const intf of remaining) {
+      const parent = parentOf(intf);
+      if (parent) children.push({ name, intf, parent });
+    }
+  }
+  for (const { name, intf, parent } of children) {
+    const anchor = interfacePositions.get(parent);
+    if (!anchor) continue;
+    const nodePos = pos.get(name)!;
+    const direction = Math.atan2(anchor.y - nodePos.y, anchor.x - nodePos.x);
+    let point = { x: anchor.x, y: anchor.y };
+    let bestClearance = -Infinity;
+    // Try nearby positions around the parent, avoiding nodes and every marker
+    // already drawn (including their VLAN rings).
+    for (const distance of [25, 34, 43, 52, 61, 70, 79]) {
+      for (let step = 0; step < 16; step++) {
+        const angle = direction + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * Math.PI / 8;
+        const candidate = { x: anchor.x + Math.cos(angle) * distance, y: anchor.y + Math.sin(angle) * distance };
+        const markerClearance = Math.min(...[...interfacePositions.values()].map((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) - 21));
+        const nodeClearance = Math.min(...nodes.map((other) => {
+          const center = pos.get(other)!;
+          return Math.hypot(candidate.x - center.x, candidate.y - center.y) - radiusFor(other) - 10;
+        }));
+        const clearance = Math.min(markerClearance, nodeClearance, candidate.x - 10, 630 - candidate.x, candidate.y - 10, 350 - candidate.y);
+        if (clearance > bestClearance) { bestClearance = clearance; point = candidate; }
+        if (clearance >= 0) break;
+      }
+      if (bestClearance >= 0) break;
+    }
+    interfacePositions.set(intf, point);
+    const bubble = svg("circle", { cx: point.x, cy: point.y, r: 7, class: "interface-bubble" });
+    interactive(bubble, `Interface ${name} · ${intf.ifname ?? "unnamed"}`, intf);
+    interfaceLayer.append(bubble);
+    decorateVlan(bubble, vlanNames(intf), intf.type === "svi" || intf.type === "vlan_member");
   }
   for (const name of nodes) {
     const p = pos.get(name)!;
