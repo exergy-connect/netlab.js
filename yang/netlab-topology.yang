@@ -223,9 +223,6 @@ module netlab-topology {
           type string;
         }
         uses mtu;
-        leaf vrf {
-          type string;
-        }
         leaf virtual_interface {
           type boolean;
         }

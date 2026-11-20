@@ -7,6 +7,8 @@ module netlab-vlan {
     prefix nt;
   }
 
+  import netlab-vrf { prefix vrf; }
+
   organization "Exergy Connect";
   description "VLAN module augmentations.";
 
@@ -45,7 +47,7 @@ module netlab-vlan {
     anydata ospf {
       description "OSPF settings for VLAN interfaces.";
     }
-    leaf vrf { type string; }
+    uses vrf:vrf-reference;
     leaf role { type string; }
     leaf name {
       type string;
@@ -71,7 +73,13 @@ module netlab-vlan {
   augment "/nt:topology" {
     list vlans {
       key "name";
-      uses vlan-definition;
+      uses vlan-definition {
+        refine vrf {
+          must ". = /topology/vrfs/name" {
+            error-message "VRF must be defined globally for a global VLAN.";
+          }
+        }
+      }
       leaf-list links {
         type string;
         description "Access-link shorthand (e.g. dut-h1).";
@@ -96,7 +104,13 @@ module netlab-vlan {
     }
     list vlans {
       key "name";
-      uses vlan-definition;
+      uses vlan-definition {
+        refine vrf {
+          must ". = /topology/vrfs/name or . = ../../vrfs/name" {
+            error-message "VRF must be defined globally or on the VLAN node.";
+          }
+        }
+      }
     }
   }
 
