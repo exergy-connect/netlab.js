@@ -83,6 +83,17 @@ export function copyGroupData(topology: Topology): void {
         for (const mod of g.module) existing.add(mod);
         node.module = [...existing];
       }
+      // Group module settings are defaults for members; explicit node values win.
+      const modules = new Set([...(topology.module ?? []), ...(g.module ?? []), ...(node.module ?? [])]);
+      for (const name of modules) {
+        const groupValue = g[name];
+        if (!groupValue || typeof groupValue !== "object" || Array.isArray(groupValue)) continue;
+        const nodeValue = node[name];
+        if (nodeValue === undefined) node[name] = structuredClone(groupValue);
+        else if (nodeValue && typeof nodeValue === "object" && !Array.isArray(nodeValue)) {
+          node[name] = deepMerge(groupValue as JsonObject, nodeValue as JsonObject);
+        }
+      }
       if (g.node_data && typeof g.node_data === "object") {
         const merged = deepMerge(g.node_data as JsonObject, node as JsonObject);
         Object.assign(node, merged);

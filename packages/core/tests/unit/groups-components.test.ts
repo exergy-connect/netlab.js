@@ -21,6 +21,28 @@ describe("groups and components", () => {
     assert.deepEqual(topology.nodes!.r1!.module, ["ospf"]);
   });
 
+  it("propagates group BGP settings while preserving node overrides", () => {
+    const topo = loadTopologyString(`
+defaults.device: frr
+module: [bgp, ospf]
+groups:
+  external:
+    members: [x1, x2, s1]
+    bgp.as: 65100
+nodes:
+  x1:
+  x2:
+    bgp.as: 65200
+  s1:
+    module: [ospf]
+links: [x1-x2]
+`);
+    const { topology, diagnostics } = transform(topo, { validate: false });
+    assert.equal((topology.nodes!.x1!.bgp as { as: number }).as, 65100);
+    assert.equal((topology.nodes!.x2!.bgp as { as: number }).as, 65200);
+    assert.equal(diagnostics.list().filter(d => d.code === "MISSING" && d.module === "bgp").length, 0);
+  });
+
   it("auto-creates nodes from groups._auto_create", () => {
     const topology: Topology = {
       groups: {
