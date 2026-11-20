@@ -204,17 +204,6 @@ button:hover {
   color: #f0e0b0;
 }
 
-.diag-block h3 {
-  margin: 0.75rem 0 0.4rem;
-  font-size: 0.85rem;
-}
-
-.diag-block .error-source {
-  max-height: 20rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 .copy-error {
   margin-top: 0.6rem;
 }

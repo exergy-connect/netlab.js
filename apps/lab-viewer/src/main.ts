@@ -116,7 +116,6 @@ function clearDiagnostics(): void {
 function showDiagnostics(opts: {
   errors?: string[];
   warnings?: string[];
-  source?: string;
   sourceUrl?: string;
 }): void {
   const errors = opts.errors ?? [];
@@ -137,8 +136,6 @@ function showDiagnostics(opts: {
           ${errors.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
         </ul>
         ${opts.sourceUrl ? `<p>Lab file: ${escapeHtml(opts.sourceUrl)}</p>` : ""}
-        <h3>Topology YAML</h3>
-        <pre class="error-source">${escapeHtml(opts.source ?? "")}</pre>
         <button class="copy-error" type="button">Copy error text</button>
         <span class="copy-status" role="status"></span>
       </div>`);
@@ -155,7 +152,7 @@ function showDiagnostics(opts: {
   diagnosticsEl.innerHTML = sections.join("");
   const copyButton = diagnosticsEl.querySelector<HTMLButtonElement>(".copy-error");
   if (copyButton) {
-    const text = ["Transform errors", ...errors, ...(opts.sourceUrl ? [`Lab file: ${opts.sourceUrl}`] : []), "", "Topology YAML:", opts.source ?? ""].join("\n");
+    const text = ["Transform errors", ...errors, ...(opts.sourceUrl ? [`Lab file: ${opts.sourceUrl}`] : [])].join("\n");
     copyButton.addEventListener("click", async () => {
       const copyStatus = diagnosticsEl.querySelector<HTMLSpanElement>(".copy-status")!;
       try {
@@ -255,14 +252,13 @@ function run(): void {
       : `OK — stages: ${JSON.stringify(stages)}`;
     showDiagnostics({
       errors: errs.map(formatDiagnostic),
-      source: src.value,
       sourceUrl,
       warnings: warns.map(formatDiagnostic),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     status.textContent = "Transform failed";
-    showDiagnostics({ errors: [message], source: src.value, sourceUrl });
+    showDiagnostics({ errors: [message], sourceUrl });
     lastResult = undefined;
     renderJson(undefined);
     graph.innerHTML = "";
