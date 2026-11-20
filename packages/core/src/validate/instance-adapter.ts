@@ -11,11 +11,13 @@ export function toYangInstance(topology: Topology): JsonObject {
   const nodesList = Object.entries(nodesDict).map(([name, node]) => {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
     adaptMpls(n);
+    adaptGateway(n);
     if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
         const copy = { ...intf };
         adaptMpls(copy, true);
+        adaptGateway(copy);
         if (Array.isArray(copy.neighbors)) {
           // already list
         }
@@ -35,10 +37,12 @@ export function toYangInstance(topology: Topology): JsonObject {
   const links = (topology.links ?? []).map((link, idx) => {
     const l: JsonObject = { ...(link as JsonObject) };
     adaptMpls(l, true);
+    adaptGateway(l);
     if (Array.isArray(l.interfaces)) {
       l.interfaces = (l.interfaces as JsonObject[]).map(intf => {
         const copy = { ...intf };
         adaptMpls(copy, true);
+        adaptGateway(copy);
         return copy;
       });
     }
@@ -60,6 +64,7 @@ export function toYangInstance(topology: Topology): JsonObject {
     ? Object.entries(topology.groups).map(([name, g]) => {
         const group = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
         adaptMpls(group);
+        adaptGateway(group);
         return group;
       })
     : undefined;
@@ -80,6 +85,10 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.mpls !== undefined) {
     topoObj.mpls = topology.mpls;
     adaptMpls(topoObj);
+  }
+  if (topology.gateway !== undefined) {
+    topoObj.gateway = topology.gateway;
+    adaptGateway(topoObj);
   }
   if (topology.ospf) topoObj.ospf = topology.ospf;
   if (topology.bgp) topoObj.bgp = topology.bgp;
@@ -106,7 +115,10 @@ function dictToNamedList(d: JsonValue): JsonObject[] {
   return Object.entries(d as JsonObject).map(([name, v]) => ({
     ...(typeof v === "object" && v && !Array.isArray(v) ? (v as JsonObject) : {}),
     name,
-  }));
+  })).map(item => {
+    adaptGateway(item);
+    return item;
+  });
 }
 
 function adaptAddressing(addressing: JsonValue | undefined): JsonObject | undefined {
@@ -167,4 +179,9 @@ function adaptMpls(parent: JsonObject, link = false): void {
     mpls._6pe = mpls["6pe"];
     delete mpls["6pe"];
   }
+}
+
+/** Represent boolean gateway shorthand as a typed container during validation. */
+function adaptGateway(parent: JsonObject): void {
+  if (typeof parent.gateway === "boolean") parent.gateway = { enabled: parent.gateway };
 }

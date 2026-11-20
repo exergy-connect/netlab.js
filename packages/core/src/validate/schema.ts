@@ -30,6 +30,7 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
     "modules/netlab-ospf.yang",
     "modules/netlab-bgp.yang",
     "modules/netlab-vlan.yang",
+    "modules/netlab-gateway.yang",
     "modules/netlab-vrf.yang",
     "modules/netlab-isis.yang",
     "modules/netlab-vxlan.yang",

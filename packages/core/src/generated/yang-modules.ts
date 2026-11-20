@@ -7,6 +7,7 @@ export const YANG_MODULES = [
   "netlab.js.yang",
   "modules/netlab-bgp.yang",
   "modules/netlab-evpn.yang",
+  "modules/netlab-gateway.yang",
   "modules/netlab-isis.yang",
   "modules/netlab-mpls.yang",
   "modules/netlab-ospf.yang",

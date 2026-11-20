@@ -1,0 +1,41 @@
+module netlab-gateway {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:gateway";
+  prefix gw;
+
+  import netlab-topology { prefix nt; }
+  import netlab-vlan { prefix vlan; }
+
+  description "Gateway redundancy settings and derived interface data.";
+  revision 2026-11-20 { description "Model gateway attributes."; }
+
+  grouping gateway-attributes {
+    leaf enabled { type boolean; description "Validation representation of boolean shorthand."; }
+    leaf protocol { type enumeration { enum anycast; enum vrrp; } }
+    leaf id { type int32; }
+    leaf ipv4 { type string; }
+    leaf ipv6 { type string; }
+    container anycast {
+      leaf mac { type string; }
+      leaf unicast { type boolean; }
+    }
+    container vrrp {
+      leaf group { type uint16; }
+      leaf priority { type uint8; }
+      leaf lla { type string; }
+      container mac {
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+      }
+    }
+  }
+
+  augment "/nt:topology" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:groups" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:nodes" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:links" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:links/nt:interfaces" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/vlan:vlans" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:nodes/vlan:vlans" { container gateway { uses gateway-attributes; } }
+}
