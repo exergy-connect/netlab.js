@@ -80,10 +80,6 @@ module netlab-vlan {
           }
         }
       }
-      leaf-list links {
-        type string;
-        description "Access-link shorthand (e.g. dut-h1).";
-      }
     }
   }
 

@@ -174,7 +174,6 @@ function assignVlanIds(topology: Topology): void {
 export function module_pre_transform(topology: Topology, ctx: TransformContext): void {
   if (topology.vlans && !topology.links) topology.links = [];
   assignVlanIds(topology);
-  createVlanAccessLinks(topology, ctx);
   allocateAccessVlanPrefixes(topology);
   createTrunkLinks(topology);
 }
