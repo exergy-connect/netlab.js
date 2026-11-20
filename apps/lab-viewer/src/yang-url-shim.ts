@@ -1,4 +1,4 @@
-/** Map module URLs to a virtual path so defaultYangDir resolves to /yang. */
+/** Browser shim for Node URL helpers referenced by xYang. */
 export function fileURLToPath(url: string | URL): string {
   const s = String(url);
   if (s.startsWith("file:")) {

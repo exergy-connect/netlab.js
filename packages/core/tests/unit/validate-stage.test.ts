@@ -1,15 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { validateAt } from "../../src/validate/validate-at.js";
 import { canonicalizeLinks } from "../../src/links/links.js";
 import { createNodeDict } from "../../src/nodes/nodes.js";
 import type { Topology } from "../../src/types.js";
 import { loadTopologyString } from "../../src/load/load.js";
 import { transform } from "../../src/transform/orchestrator.js";
-
-const yangDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../yang");
 
 describe("validateAt stage gates", () => {
   it("normalizes named prefixes, loopbacks and VRF links before validation", () => {
@@ -31,7 +27,7 @@ links:
   - r1:
     prefix: beacon
     ospf: false
-`), { yangDir });
+`));
     assert.equal(result.diagnostics.hasErrors(), false);
     assert.equal(result.stages.user_input, true);
     assert.equal(result.topology.links?.length, 2);
@@ -64,11 +60,11 @@ links:
     x2:
       bgp.default_originate: true
 `;
-    const valid = transform(loadTopologyString(yaml), { yangDir });
+    const valid = transform(loadTopologyString(yaml));
     assert.deepEqual(valid.stages, { user_input: true });
     assert.equal(valid.diagnostics.hasErrors(), false);
 
-    const invalid = transform(loadTopologyString(yaml.replace("bgp.default_originate: true", "bgp.default_originate: invalid")), { yangDir });
+    const invalid = transform(loadTopologyString(yaml.replace("bgp.default_originate: true", "bgp.default_originate: invalid")));
     assert.equal(invalid.diagnostics.list().filter((d) => d.message.includes("default_originate")).length, 1);
   });
 
@@ -88,13 +84,13 @@ links:
     s2:
     vlan.trunk: [red, blue]
 `;
-    const valid = transform(loadTopologyString(yaml), { yangDir });
+    const valid = transform(loadTopologyString(yaml));
     assert.equal(valid.diagnostics.hasErrors(), false, JSON.stringify(valid.diagnostics.list()));
-    const invalid = transform(loadTopologyString(yaml.replace("[red, blue]", "[red, blue, green]")), { yangDir });
+    const invalid = transform(loadTopologyString(yaml.replace("[red, blue]", "[red, blue, green]")));
     assert.ok(invalid.diagnostics.list().some((d) => d.message.includes("trunk[2]") && d.message.includes("must be defined")));
-    const unrelated = transform(loadTopologyString(yaml.replace("  s2:\nlinks:", "  s2:\n  s3:\n    vlans:\n      green:\nlinks:").replace("[red, blue]", "[red, blue, green]")), { yangDir });
+    const unrelated = transform(loadTopologyString(yaml.replace("  s2:\nlinks:", "  s2:\n  s3:\n    vlans:\n      green:\nlinks:").replace("[red, blue]", "[red, blue, green]")));
     assert.ok(unrelated.diagnostics.list().some((d) => d.message.includes("trunk[2]") && d.message.includes("link endpoint")));
-    const wrongNode = transform(loadTopologyString(yaml.replace("  - s1:\n    s2:\n    vlan.trunk: [red, blue]", "  - s1:\n    s2:\n      vlan.trunk: [blue]")), { yangDir });
+    const wrongNode = transform(loadTopologyString(yaml.replace("  - s1:\n    s2:\n    vlan.trunk: [red, blue]", "  - s1:\n    s2:\n      vlan.trunk: [blue]")));
     assert.ok(wrongNode.diagnostics.list().some((d) => d.message.includes("interface node")));
   });
 
@@ -106,7 +102,7 @@ groups:
     members: [s1]
     role: router
 nodes: [s1]
-`), { yangDir });
+`));
     assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
     assert.equal(result.topology.nodes?.s1?.role, "router");
   });
@@ -120,7 +116,7 @@ nodes: [s1]
     };
     canonicalizeLinks(topology);
     for (const n of Object.values(topology.nodes!)) n.device = "none";
-    const r = validateAt(topology, "user_input", { yangDir });
+    const r = validateAt(topology, "user_input");
     if (!r.ok) console.log(r.errors);
     assert.equal(topology.stage, "user_input");
     // Soft assert: YANG load/validate path must not throw; strict validity may evolve
@@ -149,9 +145,9 @@ nodes:
         evpn.export: ["65000:2"]
   r2:
 links: [r1-r2]
-`), { yangDir, snapshots });
+`), { snapshots });
   assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
-  const validation = validateAt(result.topology, "transformed", { yangDir });
+  const validation = validateAt(result.topology, "transformed");
   assert.equal(validation.ok, true, JSON.stringify(validation.errors));
   const red = snapshots.get("user_input").nodes.r1.vlans.red;
   assert.equal(red.evpn.import, "65000:1", "validation must not mutate runtime shorthand");
@@ -179,12 +175,12 @@ nodes:
   r2:
 links: [r1-r2]
 `;
-  const result = transform(loadTopologyString(yaml), { yangDir });
+  const result = transform(loadTopologyString(yaml));
   assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
-  const validation = validateAt(result.topology, "transformed", { yangDir });
+  const validation = validateAt(result.topology, "transformed");
   assert.equal(validation.ok, true, JSON.stringify(validation.errors));
 
-  const invalid = transform(loadTopologyString(yaml.replace("netlab_phy_control: false", "netlab_phy_control: invalid")), { yangDir });
+  const invalid = transform(loadTopologyString(yaml.replace("netlab_phy_control: false", "netlab_phy_control: invalid")));
   assert.equal(invalid.stages.user_input, false);
   assert.ok(invalid.diagnostics.list().some(d => d.message.includes("netlab_phy_control")));
 });
@@ -199,7 +195,7 @@ it("validates typed VRF settings, loopbacks, BGP and group definitions", () => {
     vrfs: { red: { loopback: null } }, links: [],
   } as unknown as Topology;
   const before = structuredClone(topology);
-  const result = validateAt(topology, "user_input", { yangDir });
+  const result = validateAt(topology, "user_input");
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   delete topology.stage;
   assert.deepEqual(topology, before);
@@ -212,10 +208,10 @@ it("validates typed VRF settings, loopbacks, BGP and group definitions", () => {
     { vrfs: { red: { bgp: { unexpected: true } } } },
   ]) {
     const candidate = { nodes: { r1: { name: "r1", device: "none", ...invalid } }, links: [] } as unknown as Topology;
-    assert.equal(validateAt(candidate, "user_input", { yangDir }).ok, false, JSON.stringify(invalid));
+    assert.equal(validateAt(candidate, "user_input").ok, false, JSON.stringify(invalid));
   }
   const invalidGroup = { nodes: {}, links: [], groups: { routers: { vrfs: { red: { bgp: { as: "bad" } } } } } } as unknown as Topology;
-  assert.equal(validateAt(invalidGroup, "user_input", { yangDir }).ok, false);
+  assert.equal(validateAt(invalidGroup, "user_input").ok, false);
 });
 
 it("resolves VRF references against global and relevant node definitions", () => {
@@ -228,7 +224,7 @@ it("resolves VRF references against global and relevant node definitions", () =>
     vrfs: { global: {} }, vlans: { blue: { vrf: "global" } },
     links: [{ vrf: "local", interfaces: [{ node: "r1" }, { node: "r2" }] }],
   } as unknown as Topology;
-  const valid = validateAt(topology, "user_input", { yangDir });
+  const valid = validateAt(topology, "user_input");
   assert.equal(valid.ok, true, JSON.stringify(valid.errors));
   const invalidCases: Array<(value: any) => void> = [
     v => { v.links[0].vrf = "unrelated"; },
@@ -241,7 +237,7 @@ it("resolves VRF references against global and relevant node definitions", () =>
   for (const mutate of invalidCases) {
     const invalid = structuredClone(topology);
     mutate(invalid);
-    const result = validateAt(invalid, "user_input", { yangDir });
+    const result = validateAt(invalid, "user_input");
     assert.equal(result.ok, false, JSON.stringify(invalid));
     assert.ok(result.errors.some(error => error.includes("VRF must be defined")), JSON.stringify(result.errors));
   }
@@ -250,15 +246,15 @@ it("resolves VRF references against global and relevant node definitions", () =>
 it("validates structured route distinguishers and numeric offsets", () => {
   const topology = (rd: unknown) => ({ nodes: {}, links: [], vrfs: { red: { rd } } }) as unknown as Topology;
   for (const rd of ["65000:42", "192.0.2.1:100", "4200000000:123", 42, null]) {
-    const result = validateAt(topology(rd), "user_input", { yangDir });
+    const result = validateAt(topology(rd), "user_input");
     assert.equal(result.ok, true, `${JSON.stringify(rd)}: ${JSON.stringify(result.errors)}`);
   }
   for (const rd of ["bad", "65000:x", "256.0.2.1:3", "1:2:3", -1, true]) {
-    const result = validateAt(topology(rd), "user_input", { yangDir });
+    const result = validateAt(topology(rd), "user_input");
     assert.equal(result.ok, false, JSON.stringify(rd));
   }
   const evpn = { nodes: {}, links: [], vlans: { red: { evpn: { rd: "bad" } } } } as unknown as Topology;
-  assert.equal(validateAt(evpn, "user_input", { yangDir }).ok, false);
+  assert.equal(validateAt(evpn, "user_input").ok, false);
 });
 
 it("normalizes VLAN and VRF links before validating the shared link list", () => {
@@ -279,7 +275,7 @@ vlans:
 links: [a-b]
 `;
   const snapshots = new Map<string, Topology>();
-  const result = transform(loadTopologyString(yaml), { yangDir, snapshots });
+  const result = transform(loadTopologyString(yaml), { snapshots });
   assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
   const input = snapshots.get("user_input")!;
   assert.equal(input.links?.length, 4);
@@ -291,7 +287,7 @@ links: [a-b]
   assert.equal(result.topology.links!.filter(link => link.vlan?.access === "red").length, 2);
   assert.equal(new Set(input.links!.map(link => link.linkindex)).size, 4);
 
-  const invalid = transform(loadTopologyString(yaml.replace("mtu: 1500", "mtu: 1")), { yangDir });
+  const invalid = transform(loadTopologyString(yaml.replace("mtu: 1500", "mtu: 1")));
   assert.equal(invalid.stages.user_input, false);
   assert.ok(invalid.diagnostics.list().some(d => d.module === "xyang" && d.message.includes("mtu")), JSON.stringify(invalid.diagnostics.list()));
 });
@@ -307,18 +303,18 @@ it("validates IS-IS link attributes and routing import shorthand", () => {
     ] }],
   } as unknown as Topology;
   const original = structuredClone(topology);
-  const valid = validateAt(topology, "user_input", { yangDir });
+  const valid = validateAt(topology, "user_input");
   assert.equal(valid.ok, true, JSON.stringify(valid.errors));
   delete topology.stage;
   assert.deepEqual(topology, original);
   for (const [key, value] of [["cost", 0], ["metric", 16777216], ["type", "invalid"], ["network_type", "broadcast"]] as const) {
     const invalid = structuredClone(topology);
     (invalid.links![0]!.isis as Record<string, unknown>)[key] = value;
-    assert.equal(validateAt(invalid, "user_input", { yangDir }).ok, false, `${key}: ${value}`);
+    assert.equal(validateAt(invalid, "user_input").ok, false, `${key}: ${value}`);
   }
   const invalidImport = structuredClone(topology);
   (invalidImport.nodes!.a!.isis as Record<string, unknown>).import = { bgp: "invalid" };
-  assert.equal(validateAt(invalidImport, "user_input", { yangDir }).ok, false);
+  assert.equal(validateAt(invalidImport, "user_input").ok, false);
 });
 
 it("validates OSPF endpoint attributes, areas, defaults and timers", () => {
@@ -333,7 +329,7 @@ it("validates OSPF endpoint attributes, areas, defaults and timers", () => {
     ] }],
   } as unknown as Topology;
   const original = structuredClone(topology);
-  const valid = validateAt(topology, "user_input", { yangDir });
+  const valid = validateAt(topology, "user_input");
   assert.equal(valid.ok, true, JSON.stringify(valid.errors));
   delete topology.stage;
   assert.deepEqual(topology, original);
@@ -345,7 +341,7 @@ it("validates OSPF endpoint attributes, areas, defaults and timers", () => {
   ]) {
     const invalid = structuredClone(topology);
     mutate(invalid);
-    assert.equal(validateAt(invalid, "user_input", { yangDir }).ok, false);
+    assert.equal(validateAt(invalid, "user_input").ok, false);
   }
 });
 
@@ -370,7 +366,7 @@ links:
   - a:
     b:
     prefix: 172.16.1.0/24
-`), { yangDir });
+`));
   assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
   assert.deepEqual(result.topology.links?.[0]?.prefix?.ipv4, "172.16.1.0/24");
   assert.deepEqual((result.topology.vlans?.access as any)?.prefix?.ipv4, "172.16.33.0/24");

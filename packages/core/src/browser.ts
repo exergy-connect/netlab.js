@@ -1,5 +1,5 @@
 /**
- * Browser-safe entry: transform without YANG/xYang filesystem validation.
+ * Browser-safe entry with validation against the bundled schema.
  */
 export type {
   Topology,

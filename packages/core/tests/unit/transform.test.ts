@@ -1,12 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { loadTopologyString } from "../../src/load/load.js";
 import { transform } from "../../src/transform/orchestrator.js";
 import { INTERNAL_LINKNAME } from "../../src/types.js";
-
-const yangDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../yang");
 
 describe("transform vertical slice", () => {
   it("transforms a 2-node p2p lab with ospf", () => {
@@ -21,7 +17,7 @@ nodes:
 links:
   - [r1, r2]
 `);
-    const { topology, diagnostics, stages } = transform(topo, { yangDir, validate: true });
+    const { topology, diagnostics, stages } = transform(topo, { validate: true });
 
     assert.equal(topology.provider, "clab");
     assert.ok(topology.nodes!.r1!.id);

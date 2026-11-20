@@ -112,7 +112,6 @@ export type TransformContext = {
   diagnostics: DiagnosticCollectorLike;
   devices: Record<string, DeviceDef>;
   snapshot?: (label: string) => void;
-  yangDir?: string;
 };
 
 export type DiagnosticCollectorLike = {

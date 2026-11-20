@@ -7,7 +7,6 @@ import { loadTopologyFile } from "../../src/load/load.js";
 import { transform, transformAndExport } from "../../src/transform/orchestrator.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../");
-const yangDir = path.join(root, "yang");
 const fixturesDir = path.join(root, "tests/fixtures");
 
 describe("compatibility fixtures", () => {
@@ -18,11 +17,10 @@ describe("compatibility fixtures", () => {
       const topo = loadTopologyFile(path.join(fixturesDir, file));
       // Enforce scope
       assert.equal(topo.provider ?? "clab", "clab");
-      const { topology, diagnostics } = transform(topo, { yangDir, validate: false });
+      const { topology, diagnostics } = transform(topo, { validate: false });
       assert.ok(topology.nodes);
       assert.ok(Array.isArray(topology.links));
       const exported = transformAndExport(structuredClone(loadTopologyFile(path.join(fixturesDir, file))), {
-        yangDir,
         validate: false,
       }).topology;
       assert.equal(exported.stage, undefined);

@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check generated validation schema
+        run: |
+          npm run gen:schema
+          git diff --exit-code -- packages/core/src/generated/netlab-schema.json
+
       - name: Build minified action bundle
         run: npm run build:action
 
@@ -42,7 +47,6 @@ jobs:
           path: |
             action-dist/normalize-topology.mjs
             action-dist/normalize-topology.mjs.LEGAL.txt
-            yang/
           if-no-files-found: error
 
       - name: Build lab viewer

@@ -30,7 +30,7 @@ export {
 } from "./load/attributes.js";
 
 export { validateAt } from "./validate/validate-at.js";
-export { loadNetlabYang, createValidator, defaultYangDir } from "./validate/schema.js";
+export { loadNetlabYang, createValidator } from "./validate/schema.js";
 export { toYangInstance } from "./validate/instance-adapter.js";
 
 export { transform, transformAndExport } from "./transform/orchestrator.js";
