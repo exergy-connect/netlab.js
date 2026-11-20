@@ -72,6 +72,45 @@ links:
     assert.equal(invalid.diagnostics.list().filter((d) => d.message.includes("default_originate")).length, 1);
   });
 
+  it("rejects undefined trunk VLANs while accepting global and node VLANs", () => {
+    const yaml = `
+defaults.device: none
+module: [vlan]
+vlans:
+  red:
+nodes:
+  s1:
+    vlans:
+      blue:
+  s2:
+links:
+  - s1:
+    s2:
+    vlan.trunk: [red, blue]
+`;
+    const valid = transform(loadTopologyString(yaml), { yangDir });
+    assert.equal(valid.diagnostics.hasErrors(), false, JSON.stringify(valid.diagnostics.list()));
+    const invalid = transform(loadTopologyString(yaml.replace("[red, blue]", "[red, blue, green]")), { yangDir });
+    assert.ok(invalid.diagnostics.list().some((d) => d.message.includes("trunk[2]") && d.message.includes("must be defined")));
+    const unrelated = transform(loadTopologyString(yaml.replace("  s2:\nlinks:", "  s2:\n  s3:\n    vlans:\n      green:\nlinks:").replace("[red, blue]", "[red, blue, green]")), { yangDir });
+    assert.ok(unrelated.diagnostics.list().some((d) => d.message.includes("trunk[2]") && d.message.includes("link endpoint")));
+    const wrongNode = transform(loadTopologyString(yaml.replace("  - s1:\n    s2:\n    vlan.trunk: [red, blue]", "  - s1:\n    s2:\n      vlan.trunk: [blue]")), { yangDir });
+    assert.ok(wrongNode.diagnostics.list().some((d) => d.message.includes("interface node")));
+  });
+
+  it("accepts and applies a group node role", () => {
+    const result = transform(loadTopologyString(`
+defaults.device: none
+groups:
+  switches:
+    members: [s1]
+    role: router
+nodes: [s1]
+`), { yangDir });
+    assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
+    assert.equal(result.topology.nodes?.s1?.role, "router");
+  });
+
   it("accepts canonicalized minimal topology at user_input", () => {
     const topology: Topology = {
       name: "t",

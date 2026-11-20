@@ -94,13 +94,25 @@ module netlab-vlan {
 
   augment "/nt:topology/nt:links" {
     container vlan {
-      uses vlan-if-attrs;
+      uses vlan-if-attrs {
+        refine trunk {
+          must ". = /topology/vlans/name or . = /topology/nodes[name = current()/../../interfaces/node]/vlans/name" {
+            error-message "Trunk VLAN must be defined globally or on a link endpoint.";
+          }
+        }
+      }
     }
   }
 
   augment "/nt:topology/nt:links/nt:interfaces" {
     container vlan {
-      uses vlan-if-attrs;
+      uses vlan-if-attrs {
+        refine trunk {
+          must ". = /topology/vlans/name or . = /topology/nodes[name = current()/../../node]/vlans/name" {
+            error-message "Trunk VLAN must be defined globally or on the interface node.";
+          }
+        }
+      }
     }
   }
 
@@ -114,13 +126,25 @@ module netlab-vlan {
       description "Copied onto SVI from VLAN data during transform.";
     }
     container vlan {
-      uses vlan-if-attrs;
+      uses vlan-if-attrs {
+        refine trunk {
+          must ". = /topology/vlans/name or . = ../../../vlans/name" {
+            error-message "Trunk VLAN must be defined globally or on the interface node.";
+          }
+        }
+      }
     }
   }
 
   augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" {
     container vlan {
-      uses vlan-if-attrs;
+      uses vlan-if-attrs {
+        refine trunk {
+          must ". = /topology/vlans/name or . = ../../../../vlans/name" {
+            error-message "Trunk VLAN must be defined globally or on the interface node.";
+          }
+        }
+      }
     }
   }
 }
