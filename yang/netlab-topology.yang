@@ -357,6 +357,9 @@ module netlab-topology {
       leaf-list members {
         type string;
       }
+      leaf role {
+        type ntype:node-role;
+      }
       leaf device {
         type ntype:device-name;
       }

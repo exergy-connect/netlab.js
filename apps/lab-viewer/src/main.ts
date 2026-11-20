@@ -65,6 +65,7 @@ app.innerHTML = `
           <span class="bgp-key" id="bgp-legend"><span class="ebgp-key">····</span> eBGP <span class="ibgp-key">⌒</span> iBGP</span>
         </div>
         <div id="ospf-legend" class="ospf-legend" aria-label="OSPF area colors"></div>
+        <div id="vlan-legend" class="ospf-legend" aria-label="VLAN colors"></div>
         <p class="graph-hint">Hover to inspect · click or press Enter to keep properties open · Escape to clear</p>
         <div class="graph-canvas">
           <svg id="graph" viewBox="0 0 640 360" role="group" aria-label="Topology graph"></svg>
@@ -292,6 +293,44 @@ function renderGraph(topology: Topology): void {
     if (!areas.has(key)) areas.set(key, colors[areas.size % colors.length]!);
     return areas.get(key);
   };
+  const vlanColors = new Map<string, string>();
+  const vlanNames = (value: unknown): string[] => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const data = value as Record<string, unknown>;
+    const vlan = data.vlan && typeof data.vlan === "object" && !Array.isArray(data.vlan)
+      ? data.vlan as Record<string, unknown> : {};
+    const trunk = vlan.trunk;
+    return [...new Set([data.vlan_name, vlan.name, vlan.access, vlan.native,
+      ...(Array.isArray(trunk) ? trunk : trunk && typeof trunk === "object" ? Object.keys(trunk) : []),
+    ].filter((name): name is string => typeof name === "string" && name.length > 0))];
+  };
+  const vlanColor = (name: string): string => {
+    if (!vlanColors.has(name)) {
+      const keyword = name.toLowerCase();
+      const namedColor = /^[a-z]+$/.test(keyword) && !["inherit", "initial", "unset", "revert", "revertlayer", "currentcolor", "transparent"].includes(keyword)
+        && CSS.supports("color", keyword);
+      vlanColors.set(name, namedColor ? keyword : colors[vlanColors.size % colors.length]!);
+    }
+    return vlanColors.get(name)!;
+  };
+  const decorateVlan = (bubble: SVGElement, names: string[], svi = false) => {
+    if (!names.length) return;
+    if (svi) {
+      bubble.classList.add("vlan-interface");
+      bubble.style.fill = vlanColor(names[0]!);
+      bubble.style.stroke = vlanColor(names[0]!);
+      return;
+    }
+    // A segmented ring keeps every VLAN visible on a trunk.
+    const cx = bubble.getAttribute("cx")!, cy = bubble.getAttribute("cy")!;
+    const circumference = 2 * Math.PI * 9;
+    names.forEach((name, index) => interfaceLayer.append(svg("circle", {
+      cx, cy, r: 9, fill: "none", stroke: vlanColor(name), "stroke-width": 3,
+      "stroke-dasharray": `${circumference / names.length} ${circumference}`,
+      "stroke-dashoffset": -index * circumference / names.length,
+      "pointer-events": "none",
+    })));
+  };
   const linkLayer = svg("g", {});
   const ospfLayer = svg("g", { class: "ospf-layer" });
   const bgpLayer = svg("g", { class: "bgp-layer" });
@@ -361,6 +400,7 @@ function renderGraph(topology: Topology): void {
         const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
         interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
         interfaceLayer.append(bubble);
+        decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], intf.type === "svi");
       }
     }
   }
@@ -391,6 +431,7 @@ function renderGraph(topology: Topology): void {
       const bubble = svg("circle", { cx: p.x + distance * Math.cos(angle), cy: p.y + distance * Math.sin(angle), r: 7, class: "interface-bubble" });
       interactive(bubble, `Interface ${name} · ${intf.ifname ?? "unnamed"}`, intf);
       interfaceLayer.append(bubble);
+      decorateVlan(bubble, vlanNames(intf), intf.type === "svi");
     });
   }
   for (const name of nodes) {
@@ -418,6 +459,15 @@ function renderGraph(topology: Topology): void {
     swatch.style.backgroundColor = color;
     entry.append(swatch, document.createTextNode(`Area ${area}`));
     ospfLegend.append(entry);
+  }
+  const vlanLegend = app.querySelector<HTMLElement>("#vlan-legend")!;
+  vlanLegend.replaceChildren();
+  for (const [name, color] of vlanColors) {
+    const entry = document.createElement("span");
+    const swatch = document.createElement("i");
+    swatch.style.backgroundColor = color;
+    entry.append(swatch, document.createTextNode(`VLAN ${name}`));
+    vlanLegend.append(entry);
   }
   const applyLayers = () => {
     const ospfOn = ospfButton.getAttribute("aria-pressed") === "true";

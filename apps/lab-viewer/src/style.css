@@ -344,6 +344,7 @@ pre {
 .node { cursor: pointer; }
 .edge:hover, .edge:focus, .edge.is-selected { stroke: #fbbf24; stroke-opacity: 1; }
 .interface-bubble:hover, .interface-bubble:focus, .interface-bubble.is-selected { fill: #fbbf24; }
+.interface-bubble.vlan-interface:hover, .interface-bubble.vlan-interface:focus, .interface-bubble.vlan-interface.is-selected { stroke: #fbbf24 !important; stroke-width: 3; }
 .node:hover circle, .node:focus circle, .node.is-selected circle { stroke: #fbbf24; stroke-width: 3; }
 
 .graph-layers, .ospf-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem; }
