@@ -48,6 +48,7 @@ module netlab-vlan {
       description "OSPF settings for VLAN interfaces.";
     }
     uses vrf:vrf-reference;
+    uses nt:mtu;
     leaf role { type string; }
     leaf name {
       type string;

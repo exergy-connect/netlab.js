@@ -43,6 +43,14 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
     (node.interfaces ?? []).some((i) => typeof i.ipv6 === "string") ||
     typeof (node.loopback as JsonObject | undefined)?.ipv6 === "string";
   ospf.af = { ipv4: hasV4, ipv6: hasV6 };
+  if (!(node.module ?? []).includes("bfd") || ospf.bfd === false) delete ospf.bfd;
+  else if (ospf.bfd === true) {
+    const bfd: JsonObject = {};
+    if (hasV4) bfd.ipv4 = true;
+    if (hasV6) bfd.ipv6 = true;
+    if (Object.keys(bfd).length) ospf.bfd = bfd;
+    else delete ospf.bfd;
+  }
 
   // p2p interfaces → point-to-point; skip external/EBGP links; stub → passive
   for (const intf of node.interfaces ?? []) {
@@ -58,6 +66,22 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
       if (io.passive === undefined) io.passive = true;
     } else if (io.passive === undefined) {
       io.passive = false;
+    }
+    if (ospf.bfd !== undefined) {
+      const bfdEnabled = (node.module ?? []).includes("bfd");
+      const configured = io.bfd === undefined ? ospf.bfd : io.bfd;
+      const interfaceBfd = (intf as JsonObject).bfd;
+      const interfaceDisabled = interfaceBfd === false ||
+        (!!interfaceBfd && typeof interfaceBfd === "object" && !Array.isArray(interfaceBfd) && interfaceBfd.enabled === false);
+      if (!bfdEnabled || interfaceDisabled || configured === false) delete io.bfd;
+      else {
+        const source = configured === true ? ospf.bfd : configured;
+        const flags: JsonObject = source && typeof source === "object" && !Array.isArray(source)
+          ? { ...source } : { ipv4: true, ipv6: true };
+        for (const af of ["ipv4", "ipv6"]) if (!intf[af]) delete flags[af];
+        if (flags.ipv4 || flags.ipv6) io.bfd = flags;
+        else delete io.bfd;
+      }
     }
     intf.ospf = io;
   }

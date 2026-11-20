@@ -1,0 +1,33 @@
+module netlab-bfd {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:bfd";
+  prefix bfd;
+
+  import netlab-topology { prefix nt; }
+
+  description "Bidirectional Forwarding Detection settings.";
+  revision 2026-11-20 { description "Model BFD timing and enablement."; }
+
+  grouping bfd-attributes {
+    leaf enabled { type boolean; }
+    leaf min_tx { type uint32 { range "1..max"; } }
+    leaf min_rx { type uint32 { range "1..max"; } }
+    leaf min_echo_rx { type uint32; }
+    leaf multiplier { type uint32; }
+  }
+
+  grouping bfd-protocol-attributes {
+    leaf enabled { type boolean; }
+    leaf ipv4 { type boolean; }
+    leaf ipv6 { type boolean; }
+    leaf strict { type boolean; }
+    leaf strict_delay { type uint16 { range "0..600"; } }
+  }
+
+  augment "/nt:topology" { container bfd { uses bfd-attributes; } }
+  augment "/nt:topology/nt:groups" { container bfd { uses bfd-attributes; } }
+  augment "/nt:topology/nt:nodes" { container bfd { uses bfd-attributes; } }
+  augment "/nt:topology/nt:links" { container bfd { uses bfd-attributes; } }
+  augment "/nt:topology/nt:links/nt:interfaces" { container bfd { uses bfd-attributes; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" { container bfd { uses bfd-attributes; } }
+}

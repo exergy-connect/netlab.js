@@ -320,3 +320,31 @@ it("validates IS-IS link attributes and routing import shorthand", () => {
   (invalidImport.nodes!.a!.isis as Record<string, unknown>).import = { bgp: "invalid" };
   assert.equal(validateAt(invalidImport, "user_input", { yangDir }).ok, false);
 });
+
+it("validates OSPF endpoint attributes, areas, defaults and timers", () => {
+  const topology = {
+    nodes: {
+      a: { name: "a", device: "none", ospf: { default: true, gr: { helper: true }, areas: [{ area: 11, kind: "stub", range: ["10.17.0.0/16"] }] } },
+      b: { name: "b", device: "none" },
+    },
+    vrfs: { customer: { ospf: { default: false } } },
+    links: [{ linkindex: 1, ospf: { timers: { hello: 2, dead: 5 } }, interfaces: [
+      { node: "a", vrf: "customer", ospf: { priority: 7, cost: 42 } }, { node: "b" },
+    ] }],
+  } as unknown as Topology;
+  const original = structuredClone(topology);
+  const valid = validateAt(topology, "user_input", { yangDir });
+  assert.equal(valid.ok, true, JSON.stringify(valid.errors));
+  delete topology.stage;
+  assert.deepEqual(topology, original);
+  for (const mutate of [
+    (v: any) => { v.links[0].interfaces[0].ospf.priority = 256; },
+    (v: any) => { v.links[0].ospf.timers.hello = 0; },
+    (v: any) => { v.links[0].interfaces[0].vrf = "missing"; },
+    (v: any) => { v.nodes.a.ospf.areas[0].range = ["999.0.0.0/8"]; },
+  ]) {
+    const invalid = structuredClone(topology);
+    mutate(invalid);
+    assert.equal(validateAt(invalid, "user_input", { yangDir }).ok, false);
+  }
+});

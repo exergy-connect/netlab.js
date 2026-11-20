@@ -102,6 +102,16 @@ module netlab-vrf {
     }
   }
 
+  augment "/nt:topology/nt:links/nt:interfaces" {
+    uses vrf-reference {
+      refine vrf {
+        must ". = /topology/vrfs/name or . = /topology/nodes[name = current()/../node]/vrfs/name" {
+          error-message "VRF must be defined globally or on the interface node.";
+        }
+      }
+    }
+  }
+
   augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" {
     uses vrf-reference {
       refine vrf {

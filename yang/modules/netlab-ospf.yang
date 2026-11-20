@@ -7,6 +7,7 @@ module netlab-ospf {
     prefix nt;
   }
   import netlab-vrf { prefix vrf; }
+  import netlab-bfd { prefix bfd; }
   import netlab-types {
     prefix ntype;
   }
@@ -19,37 +20,63 @@ module netlab-ospf {
       "ospf-link-attrs grouping; reuse ntype:af-flags (requires xYang ≥ 0.1.6).";
   }
 
-  grouping ospf-link-attrs {
-    description "OSPF attributes common to interfaces and links.";
-    leaf area {
-      type string;
-    }
-    leaf network_type {
-      type string;
-    }
-    leaf cost {
-      type uint32;
+  grouping ospf-timers {
+    container timers {
+      leaf hello { type uint16 { range "1..8192"; } }
+      leaf dead { type uint16 { range "3..8192"; } }
     }
   }
 
-  augment "/nt:topology" {
-    container ospf {
-      leaf area {
-        type string;
-      }
+  grouping ospf-areas {
+    list areas {
+      leaf area { type union { type uint32; type ntype:ipv4-address-or-prefix; } }
+      leaf kind { type enumeration { enum stub; enum nssa; } }
+      leaf inter_area { type boolean; }
+      container default { leaf cost { type uint32; } }
+      list range { leaf ipv4 { type ntype:ipv4-address-or-prefix; } leaf ipv6 { type ntype:ipv6-address-or-prefix; } leaf cost { type uint32; } }
+      list external_range { leaf ipv4 { type ntype:ipv4-address-or-prefix; } leaf ipv6 { type ntype:ipv6-address-or-prefix; } leaf cost { type uint32; } leaf type { type enumeration { enum e1; enum e2; } } }
+      leaf-list filter { type string; }
+      leaf-list external_filter { type string; }
     }
   }
+
+  grouping ospf-link-attrs {
+    leaf area { type union { type string; type uint32; } }
+    leaf network_type { type enumeration { enum point-to-point; enum point-to-multipoint; enum broadcast; enum non-broadcast; } }
+    leaf cost { type uint16 { range "1..65534"; } }
+    leaf passive { type boolean; }
+    leaf priority { type uint8; }
+    leaf password { type string; }
+    container bfd { uses bfd:bfd-protocol-attributes; }
+    uses ospf-timers;
+  }
+
+  grouping ospf-common {
+    leaf area { type union { type string; type uint32; } }
+    container bfd { uses bfd:bfd-protocol-attributes; }
+    uses ospf-timers;
+    uses ospf-areas;
+  }
+
+  augment "/nt:topology" { container ospf { uses ospf-common; } }
 
   grouping ospf-node-attrs {
+    uses ospf-common;
     uses ntype:routing-imports;
-    leaf area {
-      type union { type string; type uint32; }
+    leaf router_id { type string; }
+    leaf passive { type boolean; }
+    leaf password { type string; }
+    leaf priority { type uint8; }
+    container default {
+      leaf enabled { type boolean; }
+      leaf always { type boolean; }
+      leaf policy { type string; }
+      leaf cost { type uint32; }
+      leaf type { type enumeration { enum e1; enum e2; } }
     }
-    leaf router_id {
-      type string;
-    }
-    leaf passive {
-      type boolean;
+    container gr {
+      container restart { leaf enabled { type boolean; } leaf grace_period { type uint16 { range "1..1800"; } } }
+      container helper { leaf enabled { type boolean; } leaf grace_period { type uint16 { range "10..1800"; } } }
     }
     uses ntype:af-flags;
   }
@@ -63,11 +90,11 @@ module netlab-ospf {
   augment "/nt:topology/nt:nodes/nt:interfaces" {
     container ospf {
       uses ospf-link-attrs;
-      leaf passive {
-        type boolean;
-      }
     }
   }
+
+  augment "/nt:topology/nt:links/nt:interfaces" { container ospf { uses ospf-link-attrs; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" { container ospf { uses ospf-link-attrs; } }
 
   augment "/nt:topology/nt:links" {
     container ospf {
