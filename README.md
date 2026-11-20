@@ -16,7 +16,7 @@ TypeScript core is usable for transform + optional YANG validation:
 | --- | --- |
 | Devices | `none`, `linux`, `frr`, `bird`, `iosv` (others remap to `frr` with a warning) |
 | Provider | `clab` only |
-| Modules | `vlan`, `vrf`, `vxlan`, `ospf`, `isis`, `bgp`, `evpn` |
+| Modules | `vlan`, `vrf`, `vxlan`, `ospf`, `isis`, `bgp`, `evpn`, `routing` (partial) |
 | Validation | One xYang check after input setup; later stages can be checked explicitly with `validateAt` |
 | Lab viewer | Paste YAML, transform, graph, nodes/links JSON (optional full JSON + YANG validate) |
 
@@ -93,6 +93,8 @@ Canonical topology data
 YANG is the schema authority for what Netlab expresses in `defaults/attributes.yml`. xYang loads and validates instances. JavaScript transformations apply Netlab behavior, including transform-control lists from `data/defaults/attributes.yml` (`link_no_propagate`, `pool_no_copy`, …).
 
 Module YANG under `yang/modules/` augments the topology root (groups inherit the node attribute namespace where Netlab does). Shared shapes use YANG `grouping`/`uses`, including cross-module `uses ntype:…` (requires `@exergy-connect/xyang` ≥ 0.1.6). Device names in YANG are open identifiers; the runtime still remaps unsupported platforms.
+
+The routing module currently handles static route list includes, directly connected node next hops, and basic policy and named-prefix filter normalization. It does not yet implement the full Netlab routing policy, filter, static-route, or device feature checks; successful YANG validation is not proof of routing configuration parity.
 
 ## Relationship to Netlab
 

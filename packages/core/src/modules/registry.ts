@@ -16,6 +16,7 @@ import * as ospfMod from "./ospf.js";
 import * as isisMod from "./isis.js";
 import * as bgpMod from "./bgp.js";
 import * as evpnMod from "./evpn.js";
+import * as routingMod from "./routing.js";
 
 export type ModuleHooks = {
   name: string;
@@ -58,6 +59,7 @@ const MODULES: ModuleHooks[] = [
   asHooks(isisMod),
   asHooks(bgpMod),
   asHooks(evpnMod),
+  asHooks(routingMod),
 ];
 
 export function listModules(): ModuleHooks[] {
@@ -123,7 +125,11 @@ export function mergeModuleParams(topology: Topology): void {
     for (const node of Object.values(topology.nodes ?? {})) {
       if (!(node.module ?? []).includes(m)) continue;
       const nodeMod = (node[m] as JsonObject) ?? {};
-      const merged = deepMerge(topology[m] as JsonObject, nodeMod);
+      const inherited = { ...(topology[m] as JsonObject) };
+      // Global static routes are named lists and must not become node routes
+      // unless explicitly included.
+      if (m === "routing") delete inherited.static;
+      const merged = deepMerge(inherited, nodeMod);
       // Skip empty containers — YANG has no node-level vlan/vrf stubs by default
       if (Object.keys(merged).length === 0) continue;
       node[m] = merged;
