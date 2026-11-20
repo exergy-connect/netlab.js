@@ -51,6 +51,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
+  // Keep the YANG filesystem shim live instead of baking it into Vite's dependency cache.
+  optimizeDeps: { exclude: ["@exergy-connect/xyang"] },
   resolve: {
     alias: [
       {
