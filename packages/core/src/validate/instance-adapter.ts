@@ -13,6 +13,8 @@ export function toYangInstance(topology: Topology): JsonObject {
     adaptMpls(n);
     adaptGateway(n);
     adaptBgp(n);
+    adaptRoutingImport(n, "ospf");
+    adaptRoutingImport(n, "isis");
     if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
@@ -62,6 +64,7 @@ export function toYangInstance(topology: Topology): JsonObject {
         const group: JsonObject = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
         adaptMpls(group);
         adaptGateway(group);
+        adaptRoutingImport(group, "ospf");
         if (group.vrfs && typeof group.vrfs === "object" && !Array.isArray(group.vrfs)) {
           group.vrfs = dictToNamedList(group.vrfs, true);
         }
@@ -149,6 +152,7 @@ function adaptVrfDefinition(item: JsonObject): void {
   }
   if (typeof item.bgp === "boolean") item.bgp = { enabled: item.bgp };
   adaptBgp(item);
+  adaptRoutingImport(item, "ospf");
 }
 
 function adaptAddressing(addressing: JsonValue | undefined): JsonObject | undefined {
@@ -214,6 +218,24 @@ function adaptMpls(parent: JsonObject, link = false): void {
 /** Represent boolean gateway shorthand as a typed container during validation. */
 function adaptGateway(parent: JsonObject): void {
   if (typeof parent.gateway === "boolean") parent.gateway = { enabled: parent.gateway };
+}
+
+/** Convert routing import shorthand to a keyed list without changing runtime data. */
+function adaptRoutingImport(parent: JsonObject, protocol: string): void {
+  const raw = parent[protocol];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+  const copy: JsonObject = { ...raw };
+  parent[protocol] = copy;
+  const value = copy.import;
+  if (Array.isArray(value)) {
+    copy.import = value.map(item => typeof item === "string" ? { protocol: item } : item);
+  } else if (value && typeof value === "object") {
+    copy.import = Object.entries(value).map(([name, setting]) => ({
+      ...(setting && typeof setting === "object" && !Array.isArray(setting)
+        ? setting : setting !== null ? { enabled: setting } : {}),
+      protocol: name,
+    }));
+  }
 }
 
 /** Adapt keyed BGP dictionaries and import shorthand to modeled lists. */

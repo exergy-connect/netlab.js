@@ -7,6 +7,8 @@ module netlab-isis {
     prefix nt;
   }
 
+  import netlab-types { prefix ntype; }
+
   organization "Exergy Connect";
   description "IS-IS module augmentations.";
 
@@ -34,23 +36,22 @@ module netlab-isis {
   augment "/nt:topology/nt:nodes" {
     container isis {
       uses isis-common;
+      uses ntype:routing-imports;
       leaf net {
         type string;
       }
     }
   }
 
-  augment "/nt:topology/nt:nodes/nt:interfaces" {
-    container isis {
-      leaf network_type {
-        type string;
-      }
-      leaf metric {
-        type uint32;
-      }
-      leaf passive {
-        type boolean;
-      }
-    }
+  grouping isis-link-attrs {
+    leaf network_type { type union { type boolean; type enumeration { enum point-to-point; } } }
+    leaf metric { type uint32 { range "1..16777215"; } }
+    leaf cost { type uint32 { range "1..16777215"; } }
+    leaf type { type enumeration { enum level-1; enum level-2; enum level-1-2; } }
+    leaf passive { type boolean; }
   }
+
+  augment "/nt:topology/nt:links" { container isis { uses isis-link-attrs; } }
+  augment "/nt:topology/nt:links/nt:interfaces" { container isis { uses isis-link-attrs; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces" { container isis { uses isis-link-attrs; } }
 }

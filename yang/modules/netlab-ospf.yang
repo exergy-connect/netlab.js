@@ -41,6 +41,7 @@ module netlab-ospf {
   }
 
   grouping ospf-node-attrs {
+    uses ntype:routing-imports;
     leaf area {
       type union { type string; type uint32; }
     }
