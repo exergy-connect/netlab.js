@@ -12,6 +12,7 @@ export function toYangInstance(topology: Topology): JsonObject {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
     adaptMpls(n);
     adaptGateway(n);
+    adaptBgp(n);
     if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
@@ -91,7 +92,10 @@ export function toYangInstance(topology: Topology): JsonObject {
     adaptGateway(topoObj);
   }
   if (topology.ospf) topoObj.ospf = topology.ospf;
-  if (topology.bgp) topoObj.bgp = topology.bgp;
+  if (topology.bgp) {
+    topoObj.bgp = topology.bgp;
+    adaptBgp(topoObj);
+  }
   if (topology.routing) topoObj.routing = topology.routing;
   if (topology.isis) topoObj.isis = topology.isis;
   if (topology.vxlan) topoObj.vxlan = topology.vxlan;
@@ -184,4 +188,20 @@ function adaptMpls(parent: JsonObject, link = false): void {
 /** Represent boolean gateway shorthand as a typed container during validation. */
 function adaptGateway(parent: JsonObject): void {
   if (typeof parent.gateway === "boolean") parent.gateway = { enabled: parent.gateway };
+}
+
+/** Adapt keyed BGP dictionaries and import shorthand to modeled lists. */
+function adaptBgp(parent: JsonObject): void {
+  const raw = parent.bgp;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+  const bgp: JsonObject = { ...raw as JsonObject };
+  parent.bgp = bgp;
+  for (const key of ["as_list", "confederation", "import"]) {
+    const value = bgp[key];
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    bgp[key] = Object.entries(value).map(([name, setting]) => ({
+      ...(setting && typeof setting === "object" && !Array.isArray(setting) ? setting : key === "import" && setting !== null ? { enabled: setting } : {}),
+      ...(key === "import" ? { protocol: name } : { asn: /^\d+$/.test(name) ? Number(name) : name }),
+    }));
+  }
 }

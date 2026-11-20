@@ -30,6 +30,36 @@ module netlab-bgp {
     }
   }
 
+  grouping bgp-common {
+    leaf advertise_loopback { type boolean; }
+    leaf next_hop_self { type boolean; }
+    leaf replace_global_as { type boolean; }
+    container community {
+      leaf-list ibgp { type string; }
+      leaf-list ebgp { type string; }
+      leaf-list localas_ibgp { type string; }
+      leaf-list confed_ebgp { type string; }
+    }
+    container sessions {
+      leaf-list ipv4 { type string; }
+      leaf-list ipv6 { type string; }
+    }
+    container activate {
+      leaf-list ipv4 { type string; }
+      leaf-list ipv6 { type string; }
+    }
+  }
+
+  grouping bgp-imports {
+    list import {
+      key "protocol";
+      leaf protocol { type string; }
+      leaf enabled { type boolean; }
+      leaf auto { type boolean; }
+      leaf policy { type string; }
+    }
+  }
+
   grouping bgp-interface-attrs {
     leaf local_as {
       type uint32;
@@ -47,6 +77,22 @@ module netlab-bgp {
 
   augment "/nt:topology" {
     container bgp {
+      uses bgp-common;
+      leaf ebgp_role { type string; }
+      leaf-list advertise_roles { type string; }
+      leaf-list rr_list { type string; }
+      list as_list {
+        key "asn";
+        leaf asn { type uint32; }
+        leaf name { type string; }
+        leaf-list members { type string; }
+        leaf-list rr { type string; }
+      }
+      list confederation {
+        key "asn";
+        leaf asn { type uint32; }
+        leaf-list members { type uint32; }
+      }
       leaf as {
         type uint32;
       }
@@ -63,6 +109,9 @@ module netlab-bgp {
   augment "/nt:topology/nt:nodes" {
     container bgp {
       uses bgp-rr-attrs;
+      uses bgp-common;
+      uses bgp-imports;
+      leaf local_as { type uint32; }
       leaf router_id {
         type string;
       }
