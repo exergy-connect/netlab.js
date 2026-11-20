@@ -25,6 +25,7 @@ import { applyDefaults } from "../load/parse.js";
 import { processRoutingPolicies } from "../modules/routing.js";
 import { processBgpAsList, processBgpVrfImports } from "../modules/bgp.js";
 import { expandVrfLinks } from "../modules/vrf.js";
+import { createVlanAccessLinks } from "../modules/vlan.js";
 
 export type PipelineHooks = {
   afterSetup?: (topology: Topology, ctx: TransformContext) => void;
@@ -56,6 +57,7 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   copyGroupData(topology);
   applyNodeDeviceDefaults(topology, diagnostics);
   expandVrfLinks(topology, ctx);
+  createVlanAccessLinks(topology, ctx);
   for (const node of Object.values(topology.nodes)) {
     if ((node as Record<string, unknown>).loopback === true) node.loopback = {};
   }

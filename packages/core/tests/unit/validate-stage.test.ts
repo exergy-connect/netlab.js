@@ -260,3 +260,38 @@ it("validates structured route distinguishers and numeric offsets", () => {
   const evpn = { nodes: {}, links: [], vlans: { red: { evpn: { rd: "bad" } } } } as unknown as Topology;
   assert.equal(validateAt(evpn, "user_input", { yangDir }).ok, false);
 });
+
+it("normalizes VLAN and VRF links before validating the shared link list", () => {
+  const yaml = `
+defaults.device: none
+module: [vlan, vrf, gateway]
+nodes: [a, b, c]
+vrfs:
+  tenant:
+    links: [a-b]
+vlans:
+  red:
+    links:
+      - a-c
+      - interfaces: [b, c]
+        mtu: 1500
+        gateway.protocol: anycast
+links: [a-b]
+`;
+  const snapshots = new Map<string, Topology>();
+  const result = transform(loadTopologyString(yaml), { yangDir, snapshots });
+  assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
+  const input = snapshots.get("user_input")!;
+  assert.equal(input.links?.length, 4);
+  assert.equal((input.vrfs!.tenant as Record<string, unknown>).links, undefined);
+  assert.equal((input.vlans!.red as Record<string, unknown>).links, undefined);
+  const access = input.links!.filter(link => link.vlan?.access === "red");
+  assert.equal(access.length, 2);
+  assert.equal((access[1]!.gateway as { protocol: string }).protocol, "anycast");
+  assert.equal(result.topology.links!.filter(link => link.vlan?.access === "red").length, 2);
+  assert.equal(new Set(input.links!.map(link => link.linkindex)).size, 4);
+
+  const invalid = transform(loadTopologyString(yaml.replace("mtu: 1500", "mtu: 1")), { yangDir });
+  assert.equal(invalid.stages.user_input, false);
+  assert.ok(invalid.diagnostics.list().some(d => d.module === "xyang" && d.message.includes("mtu")), JSON.stringify(invalid.diagnostics.list()));
+});
