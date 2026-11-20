@@ -32,7 +32,10 @@ module netlab-mpls {
       leaf disable_unlabeled { type boolean; }
     }
     container vpn { uses mpls-session-settings; }
-    leaf-list _6pe { type string; }
+    container _6pe {
+      leaf enabled { type boolean; }
+      leaf-list sessions { type string; }
+    }
   }
 
   grouping mpls-link-settings {
