@@ -7,3 +7,5 @@ apps/lab-viewer/src/yang-files-data.ts
 xframe/.xframe/
 xframe/*.html
 xframe/*.xp.json
+
+docs/

@@ -266,25 +266,39 @@ function run(): void {
 }
 
 let sourceGeneration = 0;
-examples.addEventListener("change", async () => {
+async function loadExample(url: string, restore = false): Promise<void> {
   const generation = ++sourceGeneration;
-  if (!examples.value) return;
   catalogStatus.textContent = "Loading topology…";
   try {
-    const response = await fetch(examples.value);
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
     if (generation !== sourceGeneration) return;
     src.value = source;
-    sourceUrl = examples.value;
+    sourceUrl = url;
+    const pageUrl = new URL(location.href);
+    pageUrl.searchParams.set("lab", url);
+    history.replaceState(history.state, "", pageUrl);
     fitTextarea();
     catalogStatus.textContent = "Topology loaded. Edit it or select Transform.";
+    if (restore) run();
   } catch (error) {
     if (generation !== sourceGeneration) return;
     catalogStatus.textContent = `Could not load topology: ${error instanceof Error ? error.message : String(error)}. Choose it again to retry.`;
     examples.value = "";
   }
+}
+examples.addEventListener("change", () => {
+  if (examples.value) void loadExample(examples.value);
+  else {
+    ++sourceGeneration;
+    const pageUrl = new URL(location.href);
+    pageUrl.searchParams.delete("lab");
+    history.replaceState(history.state, "", pageUrl);
+  }
 });
+const requestedLab = new URL(location.href).searchParams.get("lab");
+const initialGeneration = sourceGeneration;
 src.addEventListener("input", () => { ++sourceGeneration; examples.value = ""; fitTextarea(); });
 void Promise.allSettled(repositories.map(repo => fetchRepository(repo))).then(results => {
   examples.replaceChildren(new Option("Choose a topology…", ""));
@@ -298,6 +312,15 @@ void Promise.allSettled(repositories.map(repo => fetchRepository(repo))).then(re
   });
   examples.disabled = examples.options.length <= 1;
   catalogStatus.textContent = errors.length ? `Some lists could not load: ${errors.join("; ")}` : "Select a topology from GitHub.";
+  if (requestedLab && sourceGeneration === initialGeneration) {
+    const option = Array.from(examples.options).find(item => item.value === requestedLab);
+    if (option) {
+      examples.value = requestedLab;
+      void loadExample(requestedLab, true);
+    } else {
+      catalogStatus.textContent = `Saved lab is not available in the loaded catalog.${errors.length ? ` ${errors.join("; ")}` : ""}`;
+    }
+  }
 });
 runBtn.addEventListener("click", run);
 fullJsonBox.addEventListener("change", () => renderJson(lastResult));
