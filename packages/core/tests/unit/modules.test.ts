@@ -14,6 +14,29 @@ import { loadTopologyString } from "../../src/load/load.js";
 import { transform } from "../../src/transform/orchestrator.js";
 
 describe("protocol modules", () => {
+  it("normalizes numeric OSPF areas before validation and propagation", () => {
+    const topo = loadTopologyString(`
+defaults.device: none
+module: [ospf]
+ospf.area: 4294967295
+nodes:
+  r1:
+    ospf.area: 1
+  r2:
+links:
+  - r1:
+    r2:
+    ospf.area: 256
+`);
+    const { topology, diagnostics, stages } = transform(topo);
+    assert.equal(diagnostics.hasErrors(), false);
+    assert.ok(Object.values(stages).every(Boolean));
+    assert.equal(topology.ospf?.area, "255.255.255.255");
+    assert.equal(topology.nodes!.r1!.ospf?.area, "0.0.0.1");
+    assert.equal(topology.links![0]!.ospf?.area, "0.0.1.0");
+    assert.equal(topology.nodes!.r1!.interfaces![0]!.ospf?.area, "0.0.1.0");
+  });
+
   it("loads module YAML defs with requires/transform_after/no_propagate", () => {
     const defs = loadModuleDefs();
     assert.ok(defs.bgp);

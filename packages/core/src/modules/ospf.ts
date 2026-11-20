@@ -3,8 +3,25 @@ import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
 
 export const name = "ospf";
 
+function normalizeArea(container: JsonObject): void {
+  const ospf = container.ospf;
+  if (!ospf || typeof ospf !== "object" || Array.isArray(ospf)) return;
+  const area = ospf.area;
+  if (typeof area !== "number" || !Number.isInteger(area) || area < 0 || area > 0xffffffff) return;
+  ospf.area = [24, 16, 8, 0].map((shift) => (area >>> shift) & 255).join(".");
+}
+
 export function module_init(topology: Topology, _ctx: TransformContext): void {
   if (!topology.ospf) topology.ospf = {};
+  normalizeArea(topology);
+  for (const node of Object.values(topology.nodes ?? {})) {
+    normalizeArea(node);
+    for (const intf of node.interfaces ?? []) normalizeArea(intf);
+  }
+  for (const link of topology.links ?? []) {
+    normalizeArea(link);
+    for (const intf of link.interfaces ?? []) normalizeArea(intf);
+  }
 }
 
 export function node_post_transform(node: Node, topology: Topology, _ctx: TransformContext): void {
@@ -29,6 +46,7 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
 
   // p2p interfaces → point-to-point; skip external/EBGP links; stub → passive
   for (const intf of node.interfaces ?? []) {
+    normalizeArea(intf);
     if (intf.role === "external") {
       delete intf.ospf;
       continue;
