@@ -178,7 +178,10 @@ module netlab-topology {
           type string;
         }
       }
+      anydata sr;
       container loopback {
+        anydata bgp;
+        anydata ospf;
         uses if-identity;
         leaf type {
           type string;
@@ -262,6 +265,8 @@ module netlab-topology {
       leaf pool {
         type string;
       }
+      leaf group { type string; }
+      anydata members;
       leaf node_count {
         type uint32;
         description "Number of attachment points on the link (set during transform).";

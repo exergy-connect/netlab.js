@@ -127,3 +127,32 @@ nodes: [s1]
     assert.ok(Array.isArray(r.errors));
   });
 });
+
+it("validates EVPN VLAN and VRF attributes at input and transformed stages", () => {
+  const snapshots = new Map();
+  const result = transform(loadTopologyString(`
+defaults.device: none
+module: [vlan, vxlan, ospf, bgp, evpn, vrf]
+bgp.as: 65000
+vrfs:
+  tenant:
+    evpn.transit_vni: 5042
+vlans:
+  red:
+    vrf: tenant
+nodes:
+  r1:
+    evpn.as: 65000
+    vlans:
+      red:
+        evpn.import: "65000:1"
+        evpn.export: ["65000:2"]
+  r2:
+links: [r1-r2]
+`), { yangDir, snapshots });
+  assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
+  const validation = validateAt(result.topology, "transformed", { yangDir });
+  assert.equal(validation.ok, true, JSON.stringify(validation.errors));
+  const red = snapshots.get("user_input").nodes.r1.vlans.red;
+  assert.equal(red.evpn.import, "65000:1", "validation must not mutate runtime shorthand");
+});
