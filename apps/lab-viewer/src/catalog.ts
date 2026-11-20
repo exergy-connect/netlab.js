@@ -1,7 +1,7 @@
 /** Repository filters shared with lab.net's public/examples/index.json. */
 export const repositories = [
   { title: "BGP basic labs", url: "https://github.com/bgplab/bgplab/tree/master", include: ["basic/*/topology.yml"] },
-  { title: "netlab integration", url: "https://github.com/ipspace/netlab/tree/dev/tests/integration", include: [
+  { title: "netlab integration", numericFilenamesOnly: true, url: "https://github.com/ipspace/netlab/tree/dev/tests/integration", include: [
     "bgp/*.{yml,yaml}", "evpn/*.{yml,yaml}", "evpn.multihoming/*.{yml,yaml}",
     "gateway/*.{yml,yaml}", "isis/*.{yml,yaml}", "mpls/*.{yml,yaml}",
     "ospf/*/*.{yml,yaml}", "vlan/*.{yml,yaml}", "vxlan/*.{yml,yaml}",
@@ -36,6 +36,6 @@ export async function fetchRepository(repo: Repository, fetcher: typeof fetch = 
   if (data.truncated) throw new Error(`${repo.title}: incomplete GitHub file list`);
   return data.tree.filter(entry => entry.type === "blob" && entry.path.startsWith(prefix))
     .map(entry => ({ path: entry.path.slice(prefix.length), url: `https://raw.githubusercontent.com/${owner}/${name}/${encodeURIComponent(ref)}/${entry.path.split("/").map(encodeURIComponent).join("/")}` }))
-    .filter(entry => /^[0-9]/.test(entry.path.split("/").pop() ?? "") && patterns.some(pattern => pattern.test(entry.path)))
+    .filter(entry => (!("numericFilenamesOnly" in repo) || !repo.numericFilenamesOnly || /^[0-9]/.test(entry.path.split("/").pop() ?? "")) && patterns.some(pattern => pattern.test(entry.path)))
     .sort((a, b) => a.path.localeCompare(b.path));
 }
