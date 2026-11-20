@@ -27,6 +27,7 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
 
   for (const extra of [
     "netlab-internal.yang",
+    "modules/netlab-bfd.yang",
     "modules/netlab-ospf.yang",
     "modules/netlab-bgp.yang",
     "modules/netlab-vlan.yang",

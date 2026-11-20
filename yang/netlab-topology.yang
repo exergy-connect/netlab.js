@@ -201,6 +201,9 @@ module netlab-topology {
       uses ntype:af-flags;
       list interfaces {
         key "ifindex";
+        leaf parentindex { type uint32; }
+        leaf parent_ifindex { type uint32; }
+        leaf parent_ifname { type string; }
         uses if-identity;
         uses ipv4-ipv6;
         leaf linkindex {
@@ -365,6 +368,8 @@ module netlab-topology {
         type string;
       }
       leaf netlab_phy_control { type boolean; }
+      uses mtu;
+      container clab { leaf image { type string; } }
       anydata vars {
         description "Group Ansible vars.";
       }

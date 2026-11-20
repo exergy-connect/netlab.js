@@ -10,6 +10,7 @@ export function toYangInstance(topology: Topology): JsonObject {
   const nodesDict = topology.nodes ?? {};
   const nodesList = Object.entries(nodesDict).map(([name, node]) => {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
+    adaptBfd(n);
     adaptMpls(n);
     adaptGateway(n);
     adaptBgp(n);
@@ -19,6 +20,8 @@ export function toYangInstance(topology: Topology): JsonObject {
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
         const copy = { ...intf };
+        adaptBfd(copy);
+        adaptOspfBfd(copy);
         adaptMpls(copy, true);
         adaptGateway(copy);
         if (Array.isArray(copy.neighbors)) {
@@ -39,11 +42,15 @@ export function toYangInstance(topology: Topology): JsonObject {
 
   const links = (topology.links ?? []).map((link, idx) => {
     const l: JsonObject = { ...(link as JsonObject) };
+    adaptBfd(l);
+    adaptOspfBfd(l);
     adaptMpls(l, true);
     adaptGateway(l);
     if (Array.isArray(l.interfaces)) {
       l.interfaces = (l.interfaces as JsonObject[]).map(intf => {
         const copy = { ...intf };
+        adaptBfd(copy);
+        adaptOspfBfd(copy);
         adaptMpls(copy, true);
         adaptGateway(copy);
         return copy;
@@ -62,6 +69,7 @@ export function toYangInstance(topology: Topology): JsonObject {
   const groups = topology.groups
     ? Object.entries(topology.groups).map(([name, g]) => {
         const group: JsonObject = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
+        adaptBfd(group);
         adaptMpls(group);
         adaptGateway(group);
         adaptRoutingImport(group, "ospf");
@@ -88,6 +96,10 @@ export function toYangInstance(topology: Topology): JsonObject {
   }
   if (groups) topoObj.groups = groups;
   if (addressing) topoObj.addressing = addressing;
+  if (topology.bfd !== undefined) {
+    topoObj.bfd = topology.bfd;
+    adaptBfd(topoObj);
+  }
   if (topology.mpls !== undefined) {
     topoObj.mpls = topology.mpls;
     adaptMpls(topoObj);
@@ -97,7 +109,10 @@ export function toYangInstance(topology: Topology): JsonObject {
     topoObj.gateway = topology.gateway;
     adaptGateway(topoObj);
   }
-  if (topology.ospf) topoObj.ospf = topology.ospf;
+  if (topology.ospf) {
+    topoObj.ospf = topology.ospf;
+    adaptRoutingImport(topoObj, "ospf");
+  }
   if (topology.bgp) {
     topoObj.bgp = topology.bgp;
     adaptBgp(topoObj);
@@ -215,6 +230,18 @@ function adaptMpls(parent: JsonObject, link = false): void {
   }
 }
 
+/** Represent BFD boolean shorthand as a validation container. */
+function adaptBfd(parent: JsonObject): void {
+  if (typeof parent.bfd === "boolean") parent.bfd = { enabled: parent.bfd };
+}
+
+function adaptOspfBfd(parent: JsonObject): void {
+  if (!parent.ospf || typeof parent.ospf !== "object" || Array.isArray(parent.ospf)) return;
+  const ospf: JsonObject = { ...parent.ospf };
+  adaptBfd(ospf);
+  parent.ospf = ospf;
+}
+
 /** Represent boolean gateway shorthand as a typed container during validation. */
 function adaptGateway(parent: JsonObject): void {
   if (typeof parent.gateway === "boolean") parent.gateway = { enabled: parent.gateway };
@@ -226,6 +253,32 @@ function adaptRoutingImport(parent: JsonObject, protocol: string): void {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
   const copy: JsonObject = { ...raw };
   parent[protocol] = copy;
+  if (protocol === "ospf") {
+    for (const key of ["default", "bfd"]) {
+      if (typeof copy[key] === "boolean") copy[key] = { enabled: copy[key] };
+    }
+    if (typeof copy.gr === "boolean") copy.gr = { restart: { enabled: copy.gr } };
+    if (copy.gr && typeof copy.gr === "object" && !Array.isArray(copy.gr)) {
+      const gr: JsonObject = { ...copy.gr };
+      for (const key of ["restart", "helper"]) {
+        if (typeof gr[key] === "boolean") gr[key] = { enabled: gr[key] };
+      }
+      copy.gr = gr;
+    }
+    if (Array.isArray(copy.areas)) {
+      copy.areas = copy.areas.map(area => {
+        if (!area || typeof area !== "object" || Array.isArray(area)) return area;
+        const adjusted: JsonObject = { ...area };
+        for (const key of ["range", "external_range"]) {
+          if (Array.isArray(adjusted[key])) {
+            adjusted[key] = adjusted[key].map(value => typeof value === "string"
+              ? { [value.includes(":") ? "ipv6" : "ipv4"]: value } : value);
+          }
+        }
+        return adjusted;
+      });
+    }
+  }
   const value = copy.import;
   if (Array.isArray(value)) {
     copy.import = value.map(item => typeof item === "string" ? { protocol: item } : item);
