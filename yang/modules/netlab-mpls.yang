@@ -2,16 +2,66 @@ module netlab-mpls {
   yang-version 1.1;
   namespace "urn:exergy-connect:netlab:mpls";
   prefix mpls;
+
   import netlab-topology { prefix nt; }
+  import netlab-types { prefix ntype; }
+
   description "MPLS and LDP attributes.";
-  revision 2026-11-20 { description "Initial MPLS support."; }
+  revision 2026-11-20 { description "Typed MPLS and LDP settings."; }
+
+  grouping ldp-settings {
+    leaf enabled { type boolean; }
+    leaf router_id { type string; }
+    leaf igp_sync { type boolean; }
+    leaf explicit_null { type boolean; }
+    leaf-list advertise { type string; }
+  }
+
+  grouping mpls-session-settings {
+    leaf enabled { type boolean; }
+    leaf-list sessions { type string; }
+    leaf-list ipv4 { type string; }
+    leaf-list ipv6 { type string; }
+  }
+
+  grouping mpls-node-settings {
+    container ldp { uses ldp-settings; }
+    container bgp {
+      uses mpls-session-settings;
+      leaf explicit_null { type boolean; }
+      leaf disable_unlabeled { type boolean; }
+    }
+    container vpn { uses mpls-session-settings; }
+    leaf-list _6pe { type string; }
+  }
+
+  grouping mpls-link-settings {
+    leaf ldp { type boolean; }
+  }
+
+  augment "/nt:topology" {
+    container mpls { uses mpls-node-settings; }
+  }
+  augment "/nt:topology/nt:groups" {
+    container mpls { uses mpls-node-settings; }
+  }
   augment "/nt:topology/nt:nodes" {
-    anydata mpls;
-    anydata ldp;
+    container mpls { uses mpls-node-settings; }
+    container ldp {
+      uses ldp-settings;
+      uses ntype:af-flags;
+    }
   }
   augment "/nt:topology/nt:nodes/nt:interfaces" {
-    anydata mpls;
-    anydata ldp;
+    container mpls { uses mpls-link-settings; }
+    container ldp {
+      leaf passive { type boolean; }
+    }
   }
-  augment "/nt:topology/nt:links" { anydata mpls; }
+  augment "/nt:topology/nt:links" {
+    container mpls { uses mpls-link-settings; }
+  }
+  augment "/nt:topology/nt:links/nt:interfaces" {
+    container mpls { uses mpls-link-settings; }
+  }
 }
