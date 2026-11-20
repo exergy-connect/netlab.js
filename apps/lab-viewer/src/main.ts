@@ -7,6 +7,7 @@ import {
 import {
   collectEdges,
   orderForMinimalCrossings,
+  layoutTopology,
 } from "./layout";
 import { fetchRepository, repositories } from "./catalog";
 import "./style.css";
@@ -62,6 +63,7 @@ app.innerHTML = `
         <div class="graph-layers" aria-label="Graph layers">
           <button type="button" id="layer-ospf" aria-pressed="true">OSPF areas</button>
           <button type="button" id="layer-bgp" aria-pressed="true">BGP sessions</button>
+          <button type="button" id="layer-addressing" aria-pressed="false">IP addresses</button>
           <span class="bgp-key" id="bgp-legend"><span class="ebgp-key">····</span> eBGP <span class="ibgp-key">⌒</span> iBGP</span>
         </div>
         <div id="ospf-legend" class="ospf-legend" aria-label="OSPF area colors"></div>
@@ -75,6 +77,7 @@ app.innerHTML = `
           </aside>
         </div>
       </div>
+        <div id="address-list" class="address-list" hidden></div>
       <div class="json-wrap">
         <div class="json-head">
           <h2>Transformed JSON</h2>
@@ -98,6 +101,7 @@ const diagnosticsEl = app.querySelector<HTMLDivElement>("#diagnostics")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
 const ospfButton = app.querySelector<HTMLButtonElement>("#layer-ospf")!;
 const bgpButton = app.querySelector<HTMLButtonElement>("#layer-bgp")!;
+const addressingButton = app.querySelector<HTMLButtonElement>("#layer-addressing")!;
 const bgpLegend = app.querySelector<HTMLElement>("#bgp-legend")!;
 const ospfLegend = app.querySelector<HTMLDivElement>("#ospf-legend")!;
 const graphProperties = app.querySelector<HTMLElement>("#graph-properties")!;
@@ -213,19 +217,47 @@ function renderGraph(topology: Topology): void {
   bgpLegend.hidden = bgpButton.hidden;
   const edges = collectEdges(topology);
   const nodes = orderForMinimalCrossings(nodeNames, edges);
-  const pos = new Map<string, { x: number; y: number }>();
-  nodes.forEach((name, i) => {
-    const a = (2 * Math.PI * i) / Math.max(nodes.length, 1) - Math.PI / 2;
-    pos.set(name, nodes.length === 1 ? { x: 320, y: 180 } : {
-      x: 320 + 115.2 * Math.cos(a), y: 180 + 115.2 * Math.sin(a),
-    });
-  });
   const detailsFor = (name: string) => {
     const node = topology.nodes![name]!;
     return [node.device, node.bgp?.as != null ? `AS${node.bgp.as}` : undefined]
       .filter((value) => value != null && value !== "").join(" · ");
   };
-  const radiusFor = (name: string) => Math.max(34, name.length * 4, detailsFor(name).length * 3.4 + 8);
+  const labelFor = (name: string) => {
+    const id = topology.nodes![name]!.id;
+    return id == null ? name : `${name} (#${id})`;
+  };
+  const loopbacksFor = (name: string): string[] => {
+    const loopback = topology.nodes![name]!.loopback;
+    if (!loopback || typeof loopback !== "object" || Array.isArray(loopback)) return [];
+    return [loopback.ipv4, loopback.ipv6].filter((value): value is string => typeof value === "string" && value.length > 0);
+  };
+  const radiusFor = (name: string) => {
+    const loopbacks = loopbacksFor(name);
+    const sviCount = (topology.nodes![name]!.interfaces ?? []).filter((intf) => intf.type === "svi").length;
+    return Math.max(34, labelFor(name).length * 4, detailsFor(name).length * 3.4 + 8,
+      ...loopbacks.map((address) => address.length * 3.1 + 12), loopbacks.length ? 32 + loopbacks.length * 7 : 0,
+      sviCount ? Math.max(52, sviCount * 9 + 16) : 0);
+  };
+  const aspect = graph.clientWidth / Math.max(1, graph.clientHeight);
+  const hosts = new Set(nodes.filter((name) => topology.nodes![name]!.role === "host"));
+  const relative = layoutTopology(nodes, edges, hosts, radiusFor, aspect, (name) => topology.nodes![name]!.id);
+  const margin = 55;
+  const minX = Math.min(0, ...nodes.map((n) => relative.get(n)!.x - radiusFor(n) - margin));
+  const maxX = Math.max(0, ...nodes.map((n) => relative.get(n)!.x + radiusFor(n) + margin));
+  const minY = Math.min(0, ...nodes.map((n) => relative.get(n)!.y - radiusFor(n) - margin));
+  const maxY = Math.max(0, ...nodes.map((n) => relative.get(n)!.y + radiusFor(n) + margin));
+  const contentWidth = Math.max(1, maxX - minX), contentHeight = Math.max(1, maxY - minY);
+  const width = Math.max(contentWidth, contentHeight * aspect);
+  const height = Math.max(contentHeight, contentWidth / aspect);
+  const centerX = (width - (maxX - minX)) / 2 - minX;
+  const centerY = (height - (maxY - minY)) / 2 - minY;
+  graph.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  graph.style.aspectRatio = `${width} / ${height}`;
+  const pos = new Map<string, { x: number; y: number }>();
+  for (const name of nodes) {
+    const p = relative.get(name)!;
+    pos.set(name, { x: centerX + p.x, y: centerY + p.y });
+  }
 
   type Item = { title: string; properties: unknown; element: SVGElement };
   let selected: Item | undefined;
@@ -336,19 +368,22 @@ function renderGraph(topology: Topology): void {
   const bgpLayer = svg("g", { class: "bgp-layer" });
   const interfaceLayer = svg("g", {});
   const nodeLayer = svg("g", {});
-  graph.append(linkLayer, ospfLayer, bgpLayer, interfaceLayer, nodeLayer);
+  const vlanInterfaceLayer = svg("g", {});
+  const addressingLayer = svg("g", { class: "addressing-layer", "aria-label": "IP addresses" });
+  graph.append(linkLayer, ospfLayer, bgpLayer, interfaceLayer, nodeLayer, vlanInterfaceLayer, addressingLayer);
   // Preserve link identity, including parallel links, rather than using the
   // deduplicated edges used for layout.
   const pairs = new Map<string, number>();
   const represented = new Set<unknown>();
   const interfacePositions = new Map<unknown, { x: number; y: number }>();
+  const linkLabels = new Map<unknown, { x: number; y: number; angle: number; side: number }>();
   for (const link of topology.links ?? []) {
     if (link.type === "vlan_member") continue;
     const ends = (link.interfaces ?? []).filter((end) => end.node && pos.has(end.node));
     if (ends.length === 1) {
       const end = ends[0]!;
       const p = pos.get(end.node!)!;
-      const dx = p.x - 320, dy = p.y - 180;
+      const dx = p.x - centerX, dy = p.y - centerY;
       const length = Math.hypot(dx, dy) || 1;
       const line = svg("line", { x1: p.x, y1: p.y, x2: p.x + (dx || 1) / length * 60, y2: p.y + dy / length * 60, class: "edge" });
       interactive(line, `Link ${end.node}`, link);
@@ -399,6 +434,11 @@ function renderGraph(topology: Topology): void {
           candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex),
         ) ?? end;
         represented.add(intf);
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        const flip = angle > 90 || angle < -90;
+        if (flip) angle += angle > 90 ? -180 : 180;
+        const endpoint = end === first ? 0.32 : 0.68;
+        linkLabels.set(intf, { x: x1 + (x2 - x1) * endpoint, y: y1 + (y2 - y1) * endpoint, angle, side: (end === first ? -1 : 1) * (flip ? -1 : 1) });
         const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
         interfacePositions.set(intf, { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
         interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
@@ -433,8 +473,17 @@ function renderGraph(topology: Topology): void {
       (typeof intf.parent_ifname === "string" && candidate.ifname === intf.parent_ifname)
     ));
     const remaining = interfaces.filter((intf) => !represented.has(intf));
-    const standalone = remaining.filter((intf) => !parentOf(intf));
-    const outward = Math.atan2(p.y - 180, p.x - 320);
+    const vlanInterfaces = remaining.filter((intf) => intf.type === "svi");
+    vlanInterfaces.forEach((intf, index) => {
+      const point = { x: p.x + (index - (vlanInterfaces.length - 1) / 2) * 18, y: p.y - radiusFor(name) + 13 };
+      interfacePositions.set(intf, point);
+      const bubble = svg("circle", { cx: point.x, cy: point.y, r: 6, class: "interface-bubble" });
+      interactive(bubble, `Interface ${name} · ${intf.ifname ?? "unnamed"}`, intf);
+      vlanInterfaceLayer.append(bubble);
+      decorateVlan(bubble, vlanNames(intf), true);
+    });
+    const standalone = remaining.filter((intf) => intf.type !== "svi" && !parentOf(intf));
+    const outward = Math.atan2(p.y - centerY, p.x - centerX);
     standalone.forEach((intf, index) => {
       const angle = outward + (index - (standalone.length - 1) / 2) * 0.35;
       const distance = radiusFor(name) + 14;
@@ -447,7 +496,7 @@ function renderGraph(topology: Topology): void {
     });
     for (const intf of remaining) {
       const parent = parentOf(intf);
-      if (parent) children.push({ name, intf, parent });
+      if (intf.type !== "svi" && parent) children.push({ name, intf, parent });
     }
   }
   for (const { name, intf, parent } of children) {
@@ -468,7 +517,7 @@ function renderGraph(topology: Topology): void {
           const center = pos.get(other)!;
           return Math.hypot(candidate.x - center.x, candidate.y - center.y) - radiusFor(other) - 10;
         }));
-        const clearance = Math.min(markerClearance, nodeClearance, candidate.x - 10, 630 - candidate.x, candidate.y - 10, 350 - candidate.y);
+        const clearance = Math.min(markerClearance, nodeClearance, candidate.x - 10, width - 10 - candidate.x, candidate.y - 10, height - 10 - candidate.y);
         if (clearance > bestClearance) { bestClearance = clearance; point = candidate; }
         if (clearance >= 0) break;
       }
@@ -490,13 +539,105 @@ function renderGraph(topology: Topology): void {
     if (area) ospfLayer.append(svg("circle", { cx: p.x, cy: p.y, r: radius + 5, stroke: area, class: "ospf-halo" }));
     const group = svg("g", { class: "node" });
     group.append(svg("circle", { cx: p.x, cy: p.y, r: radius }));
-    const label = svg("text", { x: p.x, y: p.y - 2, "text-anchor": "middle" });
-    label.textContent = name;
-    const sub = svg("text", { x: p.x, y: p.y + 14, "text-anchor": "middle", class: "sub" });
+    const loopbacks = loopbacksFor(name);
+    const label = svg("text", { x: p.x, y: p.y - (loopbacks.length ? 12 : 2), "text-anchor": "middle" });
+    label.textContent = labelFor(name);
+    const sub = svg("text", { x: p.x, y: p.y + (loopbacks.length ? 4 : 14), "text-anchor": "middle", class: "sub" });
     sub.textContent = details;
     group.append(label, sub);
+    loopbacks.forEach((address, index) => {
+      const text = svg("text", { x: p.x, y: p.y + 19 + index * 12, "text-anchor": "middle", class: "node-loopback" });
+      text.textContent = address;
+      group.append(text);
+    });
     interactive(group, `Node ${name}`, node);
     nodeLayer.append(group);
+  }
+  // Position labels near the interface, choosing a side that clears existing labels and nodes.
+  const addressBoxes: { x: number; y: number; w: number; h: number }[] = [];
+  const labelScale = Math.max(0.1, Math.min(graph.clientWidth / width, graph.clientHeight / height));
+  const addressFont = Math.max(16, 11 / labelScale);
+  const lineHeight = addressFont * 1.25;
+  addressingLayer.style.fontSize = `${addressFont}px`;
+  const drawAddresses = (values: unknown[], anchor: { x: number; y: number }, origin: { x: number; y: number }, offset = 13) => {
+    const addresses = values.filter((value): value is string => typeof value === "string" && value.length > 0);
+    if (!addresses.length) return;
+    const w = Math.max(...addresses.map((address) => address.length * addressFont * 0.6)) + 4;
+    const h = addresses.length * lineHeight;
+    const angle = Math.atan2(anchor.y - origin.y, anchor.x - origin.x);
+    let best = { x: anchor.x + offset, y: anchor.y - h / 2 };
+    let bestScore = Infinity;
+    for (let i = 0; i < 16; i++) {
+      const a = angle + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * Math.PI / 8;
+      const x = anchor.x + Math.cos(a) * offset + (Math.cos(a) < 0 ? -w : 0);
+      const y = anchor.y + Math.sin(a) * offset - h / 2;
+      let score = Math.max(0, -x) + Math.max(0, x + w - width) + Math.max(0, -y) + Math.max(0, y + h - height);
+      for (const box of addressBoxes) if (x < box.x + box.w && x + w > box.x && y < box.y + box.h && y + h > box.y) score += 1000;
+      for (const name of nodes) {
+        const p = pos.get(name)!;
+        const cx = Math.max(x, Math.min(p.x, x + w)), cy = Math.max(y, Math.min(p.y, y + h));
+        if (Math.hypot(p.x - cx, p.y - cy) < radiusFor(name) + 7) score += 1000;
+      }
+      if (score < bestScore) { bestScore = score; best = { x, y }; }
+      if (score === 0) break;
+    }
+    addressBoxes.push({ ...best, w, h });
+    addresses.forEach((address, index) => {
+      const label = svg("text", { x: best.x + 2, y: best.y + addressFont + index * lineHeight, class: "address-label" });
+      label.textContent = address;
+      addressingLayer.append(label);
+    });
+  };
+  const addressRows: { node: string; intf: string; address: string }[] = [];
+  for (const name of nodes) {
+    const node = topology.nodes![name]!;
+    const p = pos.get(name)!;
+    for (const intf of node.interfaces ?? []) {
+      for (const address of [intf.ipv4, intf.ipv6]) {
+        if (typeof address === "string" && address) addressRows.push({ node: name, intf: String(intf.ifname ?? "interface"), address });
+      }
+      const anchor = interfacePositions.get(intf);
+      const linkLabel = linkLabels.get(intf);
+      if (linkLabel) {
+        const addresses = [intf.ipv4, intf.ipv6].filter((value): value is string => typeof value === "string" && value.length > 0);
+        addresses.forEach((address, index) => {
+          const radians = linkLabel.angle * Math.PI / 180;
+          const side = linkLabel.side;
+          const distance = addressFont * 1.2;
+          const x = linkLabel.x - Math.sin(radians) * side * distance;
+          const y = linkLabel.y + Math.cos(radians) * side * distance + (index - (addresses.length - 1) / 2) * lineHeight;
+          const label = svg("text", { x, y, "text-anchor": "middle", class: "address-label", "data-anchor-x": anchor?.x ?? linkLabel.x, "data-anchor-y": anchor?.y ?? linkLabel.y });
+          label.textContent = address;
+          addressingLayer.append(label);
+        });
+      } else if (anchor) drawAddresses([intf.ipv4, intf.ipv6], anchor, p);
+    }
+    if (node.loopback && typeof node.loopback === "object" && !Array.isArray(node.loopback)) {
+      for (const address of [node.loopback.ipv4, node.loopback.ipv6]) {
+        if (typeof address === "string" && address) addressRows.push({ node: name, intf: "loopback", address });
+      }
+    }
+  }
+  const addressList = app.querySelector<HTMLElement>("#address-list")!;
+  addressList.replaceChildren();
+  const addressTable = document.createElement("table");
+  addressTable.setAttribute("aria-label", "Interface addresses");
+  const header = addressTable.createTHead().insertRow();
+  for (const text of ["Node", "Interface", "Address"]) {
+    const cell = document.createElement("th");
+    cell.scope = "col";
+    cell.textContent = text;
+    header.append(cell);
+  }
+  const body = addressTable.createTBody();
+  for (const row of addressRows) {
+    const tr = body.insertRow();
+    for (const value of [row.node, row.intf, row.address]) tr.insertCell().textContent = value;
+  }
+  addressList.append(addressTable);
+  for (const label of addressingLayer.querySelectorAll<SVGTextElement>(".address-label")) {
+    label.dataset.originalX = label.getAttribute("x") ?? "0";
+    label.dataset.originalY = label.getAttribute("y") ?? "0";
   }
   ospfLegend.replaceChildren();
   for (const [area, color] of areas) {
@@ -520,14 +661,63 @@ function renderGraph(topology: Topology): void {
     const bgpOn = bgpButton.getAttribute("aria-pressed") === "true";
     ospfLayer.style.display = ospfOn ? "" : "none";
     bgpLayer.style.display = bgpOn ? "" : "none";
+    const addressingVisible = addressingButton.getAttribute("aria-pressed") === "true";
+    addressingLayer.style.display = addressingVisible ? "" : "none";
+    nodeLayer.querySelectorAll<SVGElement>(".node-loopback").forEach((text) => { text.style.display = addressingVisible ? "" : "none"; });
+    addressList.hidden = addressingLayer.style.display === "none";
+    if (addressingLayer.style.display !== "none") {
+      addressingLayer.querySelectorAll(".address-leader").forEach((line) => line.remove());
+      const placed: DOMRect[] = [];
+      const graphRect = graph.getBoundingClientRect();
+      const obstacles = [...nodeLayer.querySelectorAll("circle"), ...interfaceLayer.querySelectorAll("circle.interface-bubble"), ...vlanInterfaceLayer.querySelectorAll("circle.interface-bubble")].map((el) => el.getBoundingClientRect());
+      for (const label of addressingLayer.querySelectorAll<SVGTextElement>(".address-label")) {
+        const initialX = Number(label.dataset.originalX ?? 0);
+        const initialY = Number(label.dataset.originalY ?? 0);
+        let best = { x: initialX, y: initialY }, bestScore = Infinity;
+        for (let attempt = 0; attempt < 121; attempt++) {
+          const ring = Math.ceil(attempt / 8);
+          const angle = (attempt % 8) * Math.PI / 4;
+          const x = initialX + Math.cos(angle) * ring * addressFont * 0.9;
+          const y = initialY + Math.sin(angle) * ring * addressFont * 0.9;
+          label.setAttribute("x", String(x));
+          label.setAttribute("y", String(y));
+          const box = label.getBoundingClientRect();
+          const outside = Math.max(0, graphRect.left - box.left) + Math.max(0, box.right - graphRect.right) + Math.max(0, graphRect.top - box.top) + Math.max(0, box.bottom - graphRect.bottom);
+          const intersects = (other: DOMRect) => box.left < other.right + 3 && box.right + 3 > other.left && box.top < other.bottom + 3 && box.bottom + 3 > other.top;
+          const collisions = placed.filter(intersects).length + obstacles.filter(intersects).length;
+          const score = outside * 10 + collisions * 1000 + ring * 10;
+          if (score < bestScore) { bestScore = score; best = { x, y }; }
+          if (!outside && !collisions) break;
+        }
+        label.setAttribute("x", String(best.x));
+        label.setAttribute("y", String(best.y));
+        placed.push(label.getBoundingClientRect());
+        const anchorX = label.getAttribute("data-anchor-x"), anchorY = label.getAttribute("data-anchor-y");
+        if (anchorX !== null && anchorY !== null) {
+          const leader = svg("line", { x1: anchorX, y1: anchorY, x2: best.x, y2: best.y - addressFont * 0.35, class: "address-leader" });
+          addressingLayer.insertBefore(leader, addressingLayer.firstChild);
+        }
+      }
+    }
     ospfLegend.hidden = !ospfOn || areas.size === 0;
   };
-  for (const button of [ospfButton, bgpButton]) button.onclick = () => {
+  for (const button of [ospfButton, bgpButton, addressingButton]) button.onclick = () => {
     button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
     applyLayers();
   };
   applyLayers();
 }
+
+let lastGraphSize = "";
+let graphResizeFrame = 0;
+new ResizeObserver(() => {
+  const size = `${graph.clientWidth}x${graph.clientHeight}`;
+  if (size === lastGraphSize) return;
+  lastGraphSize = size;
+  if (!lastResult) return;
+  cancelAnimationFrame(graphResizeFrame);
+  graphResizeFrame = requestAnimationFrame(() => { if (lastResult) renderGraph(lastResult); });
+}).observe(graph);
 
 function run(): void {
   status.textContent = "Running…";
