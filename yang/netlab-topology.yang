@@ -367,6 +367,7 @@ module netlab-topology {
       leaf-list config {
         type string;
       }
+      leaf netlab_phy_control { type boolean; }
       anydata vars {
         description "Group Ansible vars.";
       }

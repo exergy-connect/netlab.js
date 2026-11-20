@@ -156,3 +156,35 @@ links: [r1-r2]
   const red = snapshots.get("user_input").nodes.r1.vlans.red;
   assert.equal(red.evpn.import, "65000:1", "validation must not mutate runtime shorthand");
 });
+
+it("validates VRF loopbacks and OSPF settings alongside group attributes", () => {
+  const yaml = `
+defaults.device: none
+module: [vrf, ospf]
+groups:
+  routers:
+    members: [r1, r2]
+    ospf.area: 2
+    netlab_phy_control: false
+vrfs:
+  red:
+    loopback: true
+    ospf.area: 3
+nodes:
+  r1:
+    vrfs:
+      red:
+        loopback: 10.0.0.42/32
+        ospf.router_id: 10.0.0.1
+  r2:
+links: [r1-r2]
+`;
+  const result = transform(loadTopologyString(yaml), { yangDir });
+  assert.equal(result.stages.user_input, true, JSON.stringify(result.diagnostics.list()));
+  const validation = validateAt(result.topology, "transformed", { yangDir });
+  assert.equal(validation.ok, true, JSON.stringify(validation.errors));
+
+  const invalid = transform(loadTopologyString(yaml.replace("netlab_phy_control: false", "netlab_phy_control: invalid")), { yangDir });
+  assert.equal(invalid.stages.user_input, false);
+  assert.ok(invalid.diagnostics.list().some(d => d.message.includes("netlab_phy_control")));
+});

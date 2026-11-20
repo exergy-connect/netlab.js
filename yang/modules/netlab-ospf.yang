@@ -6,6 +6,7 @@ module netlab-ospf {
   import netlab-topology {
     prefix nt;
   }
+  import netlab-vrf { prefix vrf; }
   import netlab-types {
     prefix ntype;
   }
@@ -39,20 +40,23 @@ module netlab-ospf {
     }
   }
 
-  augment "/nt:topology/nt:nodes" {
-    container ospf {
-      leaf area {
-        type string;
-      }
-      leaf router_id {
-        type string;
-      }
-      leaf passive {
-        type boolean;
-      }
-      uses ntype:af-flags;
+  grouping ospf-node-attrs {
+    leaf area {
+      type union { type string; type uint32; }
     }
+    leaf router_id {
+      type string;
+    }
+    leaf passive {
+      type boolean;
+    }
+    uses ntype:af-flags;
   }
+
+  augment "/nt:topology/nt:nodes" { container ospf { uses ospf-node-attrs; } }
+  augment "/nt:topology/nt:groups" { container ospf { uses ospf-node-attrs; } }
+  augment "/nt:topology/vrf:vrfs" { container ospf { uses ospf-node-attrs; } }
+  augment "/nt:topology/nt:nodes/vrf:vrfs" { container ospf { uses ospf-node-attrs; } }
 
   augment "/nt:topology/nt:nodes/nt:interfaces" {
     container ospf {
