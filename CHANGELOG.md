@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Lab viewer examples:** select topology YAML from the BGP basic labs and Netlab integration repositories on GitHub.
+- **xFrame plugin:** render Netlab topologies as layered static SVGs or interactive diagrams with layer filters and click-to-zoom.
+
 - **Devices `ios` / `iosv`:** Netlab device YAML under `data/devices/` with parent inheritance, so topologies using `device: iosv` keep Cisco-style names (`GigabitEthernet0/N`, `Loopback0`, mgmt `GigabitEthernet0/0`).
 - **Daemons:** `data/daemons/` (starting with Netlab `bird.yml`) merged via `mergeDaemons` — `daemon: true` and default `parent: linux` when omitted, matching Netlab `augment.devices.merge_daemons`.
 - **Defaults:** `data/defaults/*.yml` (Netlab `addressing.yml`, `attributes.yml`, …) embedded and loaded by filename into `systemDefaults()`; `setupPools()` ports Netlab legacy lan/loopback/p2p merge and missing IPv4 prefix fill.
@@ -16,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **YANG core attrs:** `netlab-topology` / `netlab-types` cover Netlab `attributes.yml` schema for node/link/interface/loopback/pool/group (including `iosv`, `vlan_member`).
 
 ### Changed
+
+- **Package configuration:** the root package manages core and viewer dependencies, build scripts, and library exports.
+- **GitHub Actions:** upgraded checkout and Node setup actions to v7.
 
 - **YANG groupings:** `uses` for shared shapes (`mtu`, `ipv4-ipv6`, `neighbor`/`neighbor-body`, `if-identity`, `ntype:af-flags`, `vlan-definition`, `vlan-if-attrs`, `vrf-definition`, `bgp-rr-attrs`, `evpn-common`/`evpn-rt-attrs`, `vxlan-common`/`vxlan-vlan-attrs`, `ospf-link-attrs`, `isis-common`). Cross-module imported groupings require `@exergy-connect/xyang` ≥ 0.1.6.
 - **Module order:** transform hooks still sort with `transform_after`; final topology/node `module` lists use `config_after` (Netlab `reorder_node_modules`), e.g. `[ospf, bgp]` not `[bgp, ospf]`.
@@ -26,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`topology.pools`:** omits `pool_no_copy` keys (`start`, `prefix`, `prefix6`, `mac`).
 
 ### Fixed
+
+- **Lab viewer TypeScript:** include Vite client types so CSS imports type-check.
 
 - **Unsupported-device fallback:** tests use a truly unsupported device (`eos`) for the frr remap warning; `iosv` is supported and no longer rewritten to `frr`.
 - **Lab-viewer YANG load:** fs shim no longer treats `/yang/modules/<host-module>.yang` as existing via basename fallback, so BGP/OSPF/`augment` modules mutate the cached host schema instead of a duplicate (fixes `Unknown field 'bgp'` on nodes).
