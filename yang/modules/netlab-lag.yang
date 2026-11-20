@@ -12,6 +12,8 @@ module netlab-lag {
     leaf mode { type string; }
     leaf parent { type string; }
     leaf _parentindex { type uint32; }
+    leaf _peerlink { type uint32; }
+    leaf _mlag { type boolean; }
     anydata members;
     container mlag {
       leaf peergroup { type union { type boolean; type uint32; } }
