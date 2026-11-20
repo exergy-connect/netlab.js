@@ -43,7 +43,7 @@ it("validates the BGP integration reference against the output model", () => {
     (data: any) => { data.topology.nodes[0].bgp.router_id = "999.1.1.1"; },
     (data: any) => { data.topology.nodes[0].bgp.community.ebgp = ["invalid"]; },
     (data: any) => { data.topology.nodes[0].bgp.neighbors[0].activate.ipv4 = "yes"; },
-    (data: any) => { data.topology.nodes[0].interfaces[0].bgp.local_as = "invalid"; },
+    (data: any) => { data.topology.nodes[0].interfaces[0].bgp = { local_as: "invalid" }; },
   ]) {
     const invalid = structuredClone(reference);
     mutate(invalid);
