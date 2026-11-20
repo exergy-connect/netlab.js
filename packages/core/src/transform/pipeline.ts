@@ -27,6 +27,7 @@ import { processRoutingPolicies } from "../modules/routing.js";
 import { processBgpAsList, processBgpVrfImports } from "../modules/bgp.js";
 import { expandVrfLinks } from "../modules/vrf.js";
 import { createVlanAccessLinks } from "../modules/vlan.js";
+import { expandFabric } from "../modules/fabric.js";
 
 export type PipelineHooks = {
   afterSetup?: (topology: Topology, ctx: TransformContext) => void;
@@ -52,6 +53,7 @@ export function runPipeline(topology: Topology, hooks: PipelineHooks = {}): Pipe
   initGroups(topology);
   // Convert list-form nodes before group auto-create (which mutates the node dict).
   topology.nodes = createNodeDict(topology.nodes, diagnostics);
+  expandFabric(topology, ctx);
   autoCreateGroupMembers(topology);
   expandComponents(topology);
   canonicalizeLinks(topology, diagnostics);
