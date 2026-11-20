@@ -17,6 +17,9 @@ module netlab-vrf {
   grouping vrf-definition {
     description "Shared VRF object fields (global and per-node).";
     anydata bgp;
+    anydata loopback {
+      description "VRF loopback accepts a boolean, prefix, or interface attributes.";
+    }
     leaf name {
       type string;
     }
