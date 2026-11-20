@@ -10,10 +10,12 @@ export function toYangInstance(topology: Topology): JsonObject {
   const nodesDict = topology.nodes ?? {};
   const nodesList = Object.entries(nodesDict).map(([name, node]) => {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
+    adaptMpls(n);
     if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
         const copy = { ...intf };
+        adaptMpls(copy, true);
         if (Array.isArray(copy.neighbors)) {
           // already list
         }
@@ -32,6 +34,14 @@ export function toYangInstance(topology: Topology): JsonObject {
 
   const links = (topology.links ?? []).map((link, idx) => {
     const l: JsonObject = { ...(link as JsonObject) };
+    adaptMpls(l, true);
+    if (Array.isArray(l.interfaces)) {
+      l.interfaces = (l.interfaces as JsonObject[]).map(intf => {
+        const copy = { ...intf };
+        adaptMpls(copy, true);
+        return copy;
+      });
+    }
     if (l.ospf === false || l.ospf === true) delete l.ospf;
     if (l.linkindex === undefined) l.linkindex = idx + 1;
     // Runtime uses qualified internal names; map onto host-module leaves for xYang
@@ -47,10 +57,11 @@ export function toYangInstance(topology: Topology): JsonObject {
   });
 
   const groups = topology.groups
-    ? Object.entries(topology.groups).map(([name, g]) => ({
-        ...(g as JsonObject),
-        name: (g as JsonObject).name ?? name,
-      }))
+    ? Object.entries(topology.groups).map(([name, g]) => {
+        const group = { ...(g as JsonObject), name: (g as JsonObject).name ?? name };
+        adaptMpls(group);
+        return group;
+      })
     : undefined;
 
   const addressing = adaptAddressing(topology.addressing);
@@ -66,6 +77,10 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (topology.defaults !== undefined) topoObj.defaults = topology.defaults;
   if (groups) topoObj.groups = groups;
   if (addressing) topoObj.addressing = addressing;
+  if (topology.mpls !== undefined) {
+    topoObj.mpls = topology.mpls;
+    adaptMpls(topoObj);
+  }
   if (topology.ospf) topoObj.ospf = topology.ospf;
   if (topology.bgp) topoObj.bgp = topology.bgp;
   if (topology.routing) topoObj.routing = topology.routing;
@@ -134,4 +149,22 @@ export function ensureNodesDict(topology: Topology): void {
 export function ensureLinksArray(topology: Topology): Link[] {
   if (!topology.links) topology.links = [];
   return topology.links;
+}
+
+/** Adapt Netlab's scalar/list shorthand to typed YANG containers without changing runtime data. */
+function adaptMpls(parent: JsonObject, link = false): void {
+  const value = parent.mpls;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const mpls: JsonObject = { ...value as JsonObject };
+  parent.mpls = mpls;
+  if (link) return;
+  for (const key of ["ldp", "bgp", "vpn"]) {
+    const setting = mpls[key];
+    if (typeof setting === "boolean") mpls[key] = { enabled: setting };
+    else if (Array.isArray(setting) && key !== "ldp") mpls[key] = { sessions: setting };
+  }
+  if ("6pe" in mpls) {
+    mpls._6pe = mpls["6pe"];
+    delete mpls["6pe"];
+  }
 }
