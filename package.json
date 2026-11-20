@@ -10,6 +10,7 @@
     "test": "tsx --test packages/core/tests/unit/**/*.test.ts",
     "test:compat": "tsx --test packages/core/tests/compatibility/**/*.test.ts",
     "viewer": "vite --config apps/lab-viewer/vite.config.ts",
+    "gen:schema": "tsx tools/generate-schema.ts",
     "gen:types": "node tools/gen-types.mjs",
     "embed:data": "node tools/embed-data.mjs",
     "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
@@ -40,7 +41,7 @@
     }
   },
   "dependencies": {
-    "@exergy-connect/xyang": "^1.0.6",
+    "@exergy-connect/xyang": "^1.0.7",
     "ipaddr.js": "^2.2.0",
     "js-yaml": "^5.5.0"
   },

@@ -4,7 +4,6 @@ import { validateAt } from "../validate/validate-at.js";
 import { runPipeline } from "./pipeline.js";
 
 export type TransformOptions = {
-  yangDir?: string;
   validate?: boolean;
   cleanup?: boolean;
   snapshots?: Map<string, Topology>;
@@ -18,7 +17,7 @@ export type TransformResult = {
 
 /**
  * Browser transform. Pass `validate: true` to run YANG validation once after input setup
- * (lab-viewer supplies a Vite fs/path shim for the yang/ tree).
+ * using the bundled schema.
  */
 export function transform(topology: Topology, options: TransformOptions = {}): TransformResult {
   const stages: Partial<Record<Stage, boolean>> = {};
@@ -26,7 +25,7 @@ export function transform(topology: Topology, options: TransformOptions = {}): T
 
   const checkpoint = (topo: Topology, stage: Stage, diagnostics: DiagnosticCollector): void => {
     if (!doValidate) return;
-    const r = validateAt(topo, stage, { yangDir: options.yangDir, diagnostics });
+    const r = validateAt(topo, stage, { diagnostics });
     stages[stage] = r.ok;
     options.snapshots?.set(stage, structuredClone(topo));
   };

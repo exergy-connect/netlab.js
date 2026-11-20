@@ -24,7 +24,7 @@ it("models the normalized core graph and rejects unsupported devices", () => {
 defaults.device: frr
 nodes: { r1:, r2: }
 links: [[r1, r2]]
-`), { yangDir });
+`));
   assert.equal(result.diagnostics.hasErrors(), false);
   const output = exportMachineTopology(result.topology);
   assert.deepEqual(output.topology.nodes.map(node => node.name), ["r1", "r2"]);
@@ -76,7 +76,7 @@ links:
       bgp.local_as: 65201
     spine:
       bgp.local_as: 65100
-`), { yangDir });
+`));
   assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
   const output = exportMachineTopology(result.topology);
   const validation = validator.validate(modeledCore(output), { nativeJson: true });

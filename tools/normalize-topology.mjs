@@ -1,6 +1,5 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { loadTopologyFile, transformAndExport, exportMachineTopology } from "../packages/core/dist/index.js";
 
 try {
@@ -13,8 +12,7 @@ try {
   if (/[\r\n]/.test(outputPath)) throw new Error("Output path cannot contain a newline");
   if (inputPath === outputPath) throw new Error("Input and output paths must be different");
 
-  const yangDir = fileURLToPath(new URL("../yang/", import.meta.url));
-  const result = transformAndExport(loadTopologyFile(inputPath), { validate: true, yangDir });
+  const result = transformAndExport(loadTopologyFile(inputPath), { validate: true });
   for (const diagnostic of result.diagnostics.list()) {
     console.error(`${diagnostic.severity}: ${diagnostic.message}`);
   }

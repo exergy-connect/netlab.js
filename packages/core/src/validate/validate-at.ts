@@ -1,10 +1,9 @@
 import type { DiagnosticCollectorLike, Stage, Topology } from "../types.js";
 import { mapXyangError } from "../diagnose/collector.js";
-import { createValidator, defaultYangDir } from "./schema.js";
+import { createValidator } from "./schema.js";
 import { toYangInstance } from "./instance-adapter.js";
 
 export type ValidateAtOptions = {
-  yangDir?: string;
   diagnostics?: DiagnosticCollectorLike;
 };
 
@@ -17,8 +16,7 @@ export function validateAt(
   options: ValidateAtOptions = {},
 ): { ok: boolean; errors: string[]; warnings: string[] } {
   topology.stage = stage;
-  const yangDir = options.yangDir ?? defaultYangDir();
-  const validator = createValidator(yangDir);
+  const validator = createValidator();
   const instance = toYangInstance(topology);
   const result = validator.validate(instance, { nativeJson: true });
 

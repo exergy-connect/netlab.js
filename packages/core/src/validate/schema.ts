@@ -1,60 +1,13 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { YangParser, YangValidator, type YangModule } from "@exergy-connect/xyang";
+import { YangValidator, parseJsonSchema, type YangModule } from "@exergy-connect/xyang";
+import compiledSchema from "../generated/netlab-schema.json" with { type: "json" };
 
-let cachedModule: YangModule | undefined;
-let cachedYangDir: string | undefined;
+let compiledModule: YangModule | undefined;
 
-export function defaultYangDir(): string {
-  // Browser / Vite: lab-viewer fs shim serves the tree at /yang
-  if (!import.meta.url.startsWith("file:")) {
-    return "/yang";
-  }
-  // packages/core/src/validate -> repo yang/
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(here, "../../../../yang");
+/** Load the bundled Netlab schema once per process. */
+export function loadNetlabYang(): YangModule {
+  return compiledModule ??= parseJsonSchema(compiledSchema);
 }
 
-export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
-  if (cachedModule && cachedYangDir === yangDir) return cachedModule;
-
-  const topologyPath = path.join(yangDir, "netlab-topology.yang");
-  const includePaths = [yangDir, path.join(yangDir, "modules")];
-
-  // One parser cache so modular augment modules mutate the shared host schema.
-  const parser = new YangParser({ includePath: includePaths, expandUses: true });
-  const module = parser.parseFile(topologyPath);
-
-  for (const extra of [
-    "netlab-internal.yang",
-    "modules/netlab-bfd.yang",
-    "modules/netlab-ospf.yang",
-    "modules/netlab-bgp.yang",
-    "modules/netlab-vlan.yang",
-    "modules/netlab-gateway.yang",
-    "modules/netlab-vrf.yang",
-    "modules/netlab-isis.yang",
-    "modules/netlab-vxlan.yang",
-    "modules/netlab-evpn.yang",
-    "modules/netlab-mpls.yang",
-    "modules/netlab-lag.yang",
-  ]) {
-    const extraPath = path.join(yangDir, extra);
-    try {
-      parser.parseFile(extraPath);
-    } catch (err) {
-      // Module YANG may be absent in partial checkouts; fail loud when present but broken.
-      const code = (err as NodeJS.ErrnoException)?.code;
-      if (code !== "ENOENT") throw err;
-    }
-  }
-
-  cachedModule = module;
-  cachedYangDir = yangDir;
-  return cachedModule;
-}
-
-export function createValidator(yangDir?: string): YangValidator {
-  const mod = loadNetlabYang(yangDir);
-  return new YangValidator(mod);
+export function createValidator(): YangValidator {
+  return new YangValidator(loadNetlabYang());
 }

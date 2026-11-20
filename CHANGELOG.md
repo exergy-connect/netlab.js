@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Validation:** bundle the precompiled xYang schema so validation needs no YANG files at runtime; remove the `yangDir` option and `defaultYangDir` export.
+
 - **Package configuration:** the root package manages core and viewer dependencies, build scripts, and library exports.
 - **GitHub Actions:** upgraded checkout and Node setup actions to v7.
 

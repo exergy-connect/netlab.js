@@ -774,7 +774,6 @@ function run(): void {
     const topology = loadTopologyString(src.value);
     const { topology: result, diagnostics, stages } = transform(topology, {
       validate: validateBox.checked,
-      yangDir: "/yang",
     });
     lastResult = result;
     renderJson(result);

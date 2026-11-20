@@ -47,7 +47,7 @@ links: [[r1, r2]]
 `);
 
 const { topology: result, diagnostics, stages } = transform(topology, {
-  validate: true, // optional; needs yang/ on disk (or /yang in the browser)
+  validate: true, // optional; uses the bundled schema
 });
 ```
 
@@ -136,10 +136,9 @@ implementation's current support and limitations described above; it is not a
 full Netlab compatibility check.
 
 The CI workflow also uploads a `netlab-action-bundle` artifact containing the
-minified Node.js 24 runner, its license notices, and the YANG schema files. Build
+minified Node.js 24 runner and its license notices. Build
 it locally with `npm run build:action`. The runner is at
-`action-dist/normalize-topology.mjs` and expects the `yang/` directory alongside
-`action-dist/`. It accepts the same `NETLAB_INPUT` and `NETLAB_OUTPUT` environment
+`action-dist/normalize-topology.mjs`, with the validation schema bundled in. It accepts the same `NETLAB_INPUT` and `NETLAB_OUTPUT` environment
 variables used by the action. The reusable action runs the checked-in bundle. Rebuild and commit the bundle
 when changing its source or dependencies.
 
@@ -192,3 +191,7 @@ device unspecified.
 BGP schema regression tests project Netlab dictionaries for VRFs, AS lists,
 confederations, and route imports into keyed YANG lists before validation. The
 machine JSON export retains its dictionary representation.
+
+The default validator embeds a precompiled xYang JSON schema, so it does not need
+`yang/` at runtime. After changing the YANG sources, regenerate the bundled schema with
+`npm run gen:schema` and rebuild the action with `npm run build:action`.

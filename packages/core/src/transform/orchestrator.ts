@@ -5,7 +5,6 @@ import { cleanupTopology } from "./cleanup.js";
 import { runPipeline } from "./pipeline.js";
 
 export type TransformOptions = {
-  yangDir?: string;
   validate?: boolean;
   cleanup?: boolean;
   snapshots?: Map<string, Topology>;
@@ -23,7 +22,7 @@ export function transform(topology: Topology, options: TransformOptions = {}): T
 
   const checkpoint = (topo: Topology, stage: Stage, diagnostics: DiagnosticCollector): void => {
     if (!doValidate) return;
-    const r = validateAt(topo, stage, { yangDir: options.yangDir, diagnostics });
+    const r = validateAt(topo, stage, { diagnostics });
     stages[stage] = r.ok;
     options.snapshots?.set(stage, structuredClone(topo));
   };
