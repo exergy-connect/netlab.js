@@ -1,0 +1,135 @@
+module netlab.js {
+  yang-version 1.1;
+  namespace "urn:exergy-connect:netlab:js";
+  prefix njs;
+
+  import netlab-types { prefix ntype; }
+
+  organization "Exergy Connect";
+  description
+    "Strict core subset of a normalized netlab.js topology. This module
+     describes the transformed node and link graph, not input shorthand or
+     every attribute retained by the full export. Protocol, device-specific,
+     defaults, group, and other extension data are outside this subset.
+
+     The machine export represents nodes as a list with a name key. Links,
+     interfaces, and neighbors are arrays. The export has a top-level
+     topology member corresponding to the topology container. This module
+     does not yet model the full JSON produced by the GitHub Action.";
+
+  revision 2026-11-20 {
+    description "Initial normalized core topology subset.";
+  }
+
+  typedef device {
+    type enumeration {
+      enum none;
+      enum linux;
+      enum frr;
+      enum bird;
+      enum iosv;
+    }
+    description "Device implementations supported by netlab.js.";
+  }
+
+  grouping addresses {
+    leaf ipv4 { type ntype:ipv4-prefix; }
+    leaf ipv6 { type ntype:ipv6-prefix; }
+  }
+
+  grouping interface-identity {
+    leaf ifindex { type uint32; }
+    leaf ifname { type string { length "1..max"; } }
+  }
+
+  grouping neighbor-list {
+    list neighbors {
+      key "node";
+      leaf node {
+        type leafref { path "/topology/nodes/name"; }
+      }
+      leaf ifname { type string { length "1..max"; } }
+      uses addresses;
+    }
+  }
+
+  container topology {
+    description "A normalized topology, projected onto the modeled core.";
+    leaf name { type string { length "1..max"; } mandatory true; }
+    leaf provider { type ntype:provider-name; mandatory true; }
+    leaf-list module { type string { length "1..max"; } }
+
+    list nodes {
+      key "name";
+      unique "id";
+      leaf name { type ntype:node-id-ref; }
+      leaf id { type uint32 { range "1..150"; } mandatory true; }
+      leaf device { type device; mandatory true; }
+      leaf role { type ntype:node-role; mandatory true; }
+      leaf provider { type ntype:provider-name; }
+      leaf-list module { type string { length "1..max"; } }
+      container mgmt {
+        leaf ifname { type string { length "1..max"; } }
+        leaf ipv4 { type string; }
+        leaf ipv6 { type string; }
+        leaf mac { type string; }
+      }
+      container af {
+        leaf ipv4 { type boolean; }
+        leaf ipv6 { type boolean; }
+      }
+      container loopback {
+        uses interface-identity;
+        uses addresses;
+        leaf type { type string; }
+        leaf virtual_interface { type boolean; }
+        leaf pool { type string; }
+        uses neighbor-list;
+      }
+      list interfaces {
+        key "ifindex";
+        uses interface-identity;
+        uses addresses;
+        leaf linkindex { type uint32; }
+        leaf type { type string; }
+        leaf role { type string; }
+        leaf pool { type string; }
+        leaf bridge { type string; }
+        leaf name { type string; }
+        leaf mtu { type uint16 { range "64..9216"; } }
+        leaf vrf { type string; }
+        leaf virtual_interface { type boolean; }
+        uses neighbor-list;
+      }
+    }
+
+    list links {
+      key "linkindex";
+      leaf linkindex { type uint32 { range "1..max"; } }
+      leaf type { type ntype:link-type; }
+      leaf bridge { type string; }
+      leaf name { type string; }
+      leaf role { type string; }
+      leaf pool { type string; }
+      leaf node_count { type uint32; }
+      leaf shutdown { type boolean; }
+      leaf unnumbered { type boolean; }
+      leaf vlan_name { type string; }
+      leaf parentindex { type uint32; }
+      leaf bandwidth { type uint64; }
+      leaf mtu { type uint16 { range "64..9216"; } }
+      container prefix {
+        uses addresses;
+        leaf allocation { type ntype:allocation-mode; }
+      }
+      list interfaces {
+        key "node";
+        leaf node {
+          type leafref { path "/topology/nodes/name"; }
+        }
+        uses interface-identity;
+        uses addresses;
+      }
+    }
+  }
+}

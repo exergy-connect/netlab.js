@@ -36,6 +36,8 @@ export { toYangInstance } from "./validate/instance-adapter.js";
 export { transform, transformAndExport } from "./transform/orchestrator.js";
 export type { TransformOptions, TransformResult } from "./transform/orchestrator.js";
 export { cleanupTopology, exportTopology } from "./transform/cleanup.js";
+export { exportMachineTopology } from "./transform/machine-export.js";
+export type { MachineTopology } from "./transform/machine-export.js";
 
 export { createNodeDict, transformNodes, formatIfName } from "./nodes/nodes.js";
 export { canonicalizeLinks, transformLinks } from "./links/links.js";

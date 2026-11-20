@@ -24,6 +24,8 @@ export { systemDefaults } from "./load/defaults.js";
 export { transform } from "./transform/browser-transform.js";
 export type { TransformOptions, TransformResult } from "./transform/browser-transform.js";
 export { cleanupTopology, exportTopology } from "./transform/cleanup.js";
+export { exportMachineTopology } from "./transform/machine-export.js";
+export type { MachineTopology } from "./transform/machine-export.js";
 
 export { createNodeDict, transformNodes, formatIfName } from "./nodes/nodes.js";
 export { canonicalizeLinks, transformLinks } from "./links/links.js";

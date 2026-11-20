@@ -1,0 +1,28 @@
+name: Validate and normalize Netlab topology
+description: Validate a Netlab YAML or JSON topology and export its transformed topology as JSON.
+inputs:
+  input:
+    description: Path to the topology file, relative to the workspace.
+    required: true
+  output:
+    description: Path for the resulting JSON file, relative to the workspace.
+    required: false
+    default: topology.json
+outputs:
+  path:
+    description: Absolute path to the generated JSON file.
+    value: ${{ steps.normalize.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: '24'
+    - name: Validate and normalize topology
+      id: normalize
+      shell: bash
+      env:
+        NETLAB_ACTION_DIR: ${{ github.action_path }}
+        NETLAB_INPUT: ${{ inputs.input }}
+        NETLAB_OUTPUT: ${{ inputs.output }}
+      run: node "$NETLAB_ACTION_DIR/action-dist/normalize-topology.mjs"

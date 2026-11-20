@@ -13,7 +13,8 @@
     "gen:types": "node tools/gen-types.mjs",
     "embed:data": "node tools/embed-data.mjs",
     "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "preview:viewer": "vite preview --config apps/lab-viewer/vite.config.ts"
+    "preview:viewer": "vite preview --config apps/lab-viewer/vite.config.ts",
+    "build:action": "npm run build && node tools/bundle-action.mjs"
   },
   "engines": {
     "node": ">=24"
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.19.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"

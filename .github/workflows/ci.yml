@@ -35,8 +35,48 @@ jobs:
       - name: Build library
         run: npm run build
 
+      - name: Build minified action bundle
+        run: npm run build:action
+
+      - name: Check committed action bundle is current
+        run: git diff --exit-code -- action-dist/
+
+      - name: Upload action bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlab-action-bundle
+          path: |
+            action-dist/normalize-topology.mjs
+            action-dist/normalize-topology.mjs.LEGAL.txt
+            yang/
+          if-no-files-found: error
+
       - name: Build lab viewer
         run: npm run build:viewer
 
       - name: Unit tests
         run: npm test
+
+      - name: Test topology action runner
+        run: node --test tests/action/normalize.test.mjs
+
+      - name: Test bundled action runner
+        run: node --test tests/action/normalize.test.mjs
+        env:
+          NETLAB_ACTION_SCRIPT: action-dist/normalize-topology.mjs
+
+      - name: Create action fixture
+        run: |
+          printf 'defaults.device: frr\nnodes: { r1: }\n' > "$RUNNER_TEMP/topology.yml"
+
+      - name: Exercise composite action
+        id: topology
+        uses: ./
+        with:
+          input: ${{ runner.temp }}/topology.yml
+          output: ${{ runner.temp }}/topology.json
+
+      - name: Check action output
+        env:
+          TOPOLOGY_JSON: ${{ steps.topology.outputs.path }}
+        run: node -e 'const fs = require("node:fs"); if (!JSON.parse(fs.readFileSync(process.env.TOPOLOGY_JSON)).topology.nodes.some(node => node.name === "r1")) process.exit(1)'
