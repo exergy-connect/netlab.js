@@ -90,6 +90,10 @@ module netlab-topology {
       }
     }
 
+    anydata routing {
+      description "Global routing policies, filters, and static route lists.";
+    }
+
     list nodes {
       key "name";
       leaf name {
@@ -138,6 +142,9 @@ module netlab-topology {
       }
       anydata config {
         description "Inline config templates (list or dict; files plugin).";
+      }
+      anydata routing {
+        description "Node routing policies, filters, and static routes.";
       }
       container frr {
         description "FRR-specific node settings.";

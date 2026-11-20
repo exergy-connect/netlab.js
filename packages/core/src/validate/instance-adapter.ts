@@ -68,6 +68,7 @@ export function toYangInstance(topology: Topology): JsonObject {
   if (addressing) topoObj.addressing = addressing;
   if (topology.ospf) topoObj.ospf = topology.ospf;
   if (topology.bgp) topoObj.bgp = topology.bgp;
+  if (topology.routing) topoObj.routing = topology.routing;
   if (topology.isis) topoObj.isis = topology.isis;
   if (topology.vxlan) topoObj.vxlan = topology.vxlan;
   if (topology.evpn) topoObj.evpn = topology.evpn;
