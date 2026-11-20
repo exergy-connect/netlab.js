@@ -41,11 +41,6 @@ app.innerHTML = `
   </header>
   <main>
     <section class="editor">
-      <label for="examples">GitHub topologies</label>
-      <select id="examples" disabled><option value="">Loading topologies…</option></select>
-      <p id="catalog-status" role="status"></p>
-      <label for="src">Topology YAML</label>
-      <textarea id="src" spellcheck="false" rows="1"></textarea>
       <div class="actions">
         <button id="run" type="button">Transform</button>
         <label class="check">
@@ -54,12 +49,30 @@ app.innerHTML = `
         </label>
         <span id="status"></span>
       </div>
+      <label for="examples">GitHub topologies</label>
+      <select id="examples" disabled><option value="">Loading topologies…</option></select>
+      <p id="catalog-status" role="status"></p>
+      <label for="src">Topology YAML</label>
+      <textarea id="src" spellcheck="false" rows="1"></textarea>
       <div id="diagnostics" class="diagnostics" hidden></div>
     </section>
     <section class="view">
       <div class="graph-wrap">
         <h2>Graph</h2>
-        <svg id="graph" viewBox="0 0 640 360" role="img" aria-label="Topology graph"></svg>
+        <div class="graph-layers" aria-label="Graph layers">
+          <button type="button" id="layer-ospf" aria-pressed="true">OSPF areas</button>
+          <button type="button" id="layer-bgp" aria-pressed="true">BGP sessions</button>
+          <span class="bgp-key" id="bgp-legend"><span class="ebgp-key">····</span> eBGP <span class="ibgp-key">⌒</span> iBGP</span>
+        </div>
+        <div id="ospf-legend" class="ospf-legend" aria-label="OSPF area colors"></div>
+        <p class="graph-hint">Hover to inspect · click or press Enter to keep properties open · Escape to clear</p>
+        <div class="graph-canvas">
+          <svg id="graph" viewBox="0 0 640 360" role="group" aria-label="Topology graph"></svg>
+          <aside id="graph-properties" class="graph-properties" aria-label="Graph properties" hidden>
+            <div class="graph-properties-head"><strong></strong><button type="button" aria-label="Close properties">×</button></div>
+            <pre></pre>
+          </aside>
+        </div>
       </div>
       <div class="json-wrap">
         <div class="json-head">
@@ -82,6 +95,11 @@ const out = app.querySelector<HTMLPreElement>("#out")!;
 const status = app.querySelector<HTMLSpanElement>("#status")!;
 const diagnosticsEl = app.querySelector<HTMLDivElement>("#diagnostics")!;
 const graph = app.querySelector<SVGSVGElement>("#graph")!;
+const ospfButton = app.querySelector<HTMLButtonElement>("#layer-ospf")!;
+const bgpButton = app.querySelector<HTMLButtonElement>("#layer-bgp")!;
+const bgpLegend = app.querySelector<HTMLElement>("#bgp-legend")!;
+const ospfLegend = app.querySelector<HTMLDivElement>("#ospf-legend")!;
+const graphProperties = app.querySelector<HTMLElement>("#graph-properties")!;
 const runBtn = app.querySelector<HTMLButtonElement>("#run")!;
 const validateBox = app.querySelector<HTMLInputElement>("#validate")!;
 const fullJsonBox = app.querySelector<HTMLInputElement>("#full-json")!;
@@ -186,43 +204,233 @@ function renderJson(topology: Topology | undefined): void {
 
 function renderGraph(topology: Topology): void {
   const nodeNames = Object.keys(topology.nodes ?? {});
+  const hasProtocol = (protocol: "ospf" | "bgp") =>
+    topology.module?.includes(protocol) || Object.values(topology.nodes ?? {}).some((node) =>
+      node.module?.includes(protocol) || Boolean(node[protocol]));
+  ospfButton.hidden = !hasProtocol("ospf");
+  bgpButton.hidden = !hasProtocol("bgp");
+  bgpLegend.hidden = bgpButton.hidden;
   const edges = collectEdges(topology);
   const nodes = orderForMinimalCrossings(nodeNames, edges);
-  const w = 640;
-  const h = 360;
-  const cx = w / 2;
-  const cy = h / 2;
-  const r = Math.min(w, h) * 0.32;
   const pos = new Map<string, { x: number; y: number }>();
   nodes.forEach((name, i) => {
     const a = (2 * Math.PI * i) / Math.max(nodes.length, 1) - Math.PI / 2;
-    pos.set(name, { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+    pos.set(name, nodes.length === 1 ? { x: 320, y: 180 } : {
+      x: 320 + 115.2 * Math.cos(a), y: 180 + 115.2 * Math.sin(a),
+    });
   });
+  const detailsFor = (name: string) => {
+    const node = topology.nodes![name]!;
+    return [node.device, node.bgp?.as != null ? `AS${node.bgp.as}` : undefined]
+      .filter((value) => value != null && value !== "").join(" · ");
+  };
+  const radiusFor = (name: string) => Math.max(34, name.length * 4, detailsFor(name).length * 3.4 + 8);
 
-  const lines = edges
-    .map(([u, v]) => {
-      const a = pos.get(u);
-      const b = pos.get(v);
-      if (!a || !b) return "";
-      return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="edge"/>`;
-    })
-    .filter(Boolean)
-    .join("");
+  type Item = { title: string; properties: unknown; element: SVGElement };
+  let selected: Item | undefined;
+  let hovered: Item | undefined;
+  const title = graphProperties.querySelector("strong")!;
+  const content = graphProperties.querySelector("pre")!;
+  const close = graphProperties.querySelector<HTMLButtonElement>("button")!;
+  const show = () => {
+    const item = selected ?? hovered;
+    graphProperties.hidden = !item;
+    if (item) {
+      title.textContent = item.title;
+      content.textContent = JSON.stringify(item.properties, null, 2);
+    }
+  };
+  const clear = () => {
+    selected?.element.classList.remove("is-selected");
+    selected = undefined;
+    hovered = undefined;
+    show();
+  };
+  graphProperties.hidden = true;
+  close.onclick = clear;
+  graph.onkeydown = (event) => {
+    if (event.key === "Escape") { clear(); event.preventDefault(); }
+  };
+  graph.onclick = (event) => { if (event.target === graph) clear(); };
+  graph.replaceChildren();
+  const svg = (tag: string, attrs: Record<string, string | number>): SVGElement => {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    return el;
+  };
+  const interactive = (el: SVGElement, itemTitle: string, properties: unknown) => {
+    const item: Item = { title: itemTitle, properties, element: el };
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", itemTitle);
+    const enter = () => { hovered = item; show(); };
+    const leave = () => { if (hovered === item) hovered = undefined; show(); };
+    const select = (event: Event) => {
+      event.stopPropagation();
+      const wasSelected = selected === item;
+      selected?.element.classList.remove("is-selected");
+      selected = wasSelected ? undefined : item;
+      selected?.element.classList.add("is-selected");
+      show();
+    };
+    el.addEventListener("pointerenter", enter);
+    el.addEventListener("pointerleave", leave);
+    el.addEventListener("focus", enter);
+    el.addEventListener("blur", leave);
+    el.addEventListener("click", select);
+    el.addEventListener("keydown", (event: Event) => {
+      const key = (event as KeyboardEvent).key;
+      if (key === "Enter" || key === " ") { event.preventDefault(); select(event); }
+    });
+  };
 
-  const circles = nodes
-    .map((name) => {
-      const p = pos.get(name)!;
-      const device = String(topology.nodes?.[name]?.device ?? "");
-      return `
-        <g class="node">
-          <circle cx="${p.x}" cy="${p.y}" r="28"/>
-          <text x="${p.x}" y="${p.y - 2}" text-anchor="middle">${name}</text>
-          <text x="${p.x}" y="${p.y + 14}" text-anchor="middle" class="sub">${device}</text>
-        </g>`;
-    })
-    .join("");
-
-  graph.innerHTML = `${lines}${circles}`;
+  const colors = ["#2dd4bf", "#fb923c", "#a78bfa", "#f472b6", "#a3e635", "#38bdf8", "#facc15", "#fb7185"];
+  const areas = new Map<string, string>();
+  const areaColor = (value: unknown): string | undefined => {
+    if (typeof value !== "string" && typeof value !== "number") return undefined;
+    const key = String(value);
+    if (!areas.has(key)) areas.set(key, colors[areas.size % colors.length]!);
+    return areas.get(key);
+  };
+  const linkLayer = svg("g", {});
+  const ospfLayer = svg("g", { class: "ospf-layer" });
+  const bgpLayer = svg("g", { class: "bgp-layer" });
+  const interfaceLayer = svg("g", {});
+  const nodeLayer = svg("g", {});
+  graph.append(linkLayer, ospfLayer, bgpLayer, interfaceLayer, nodeLayer);
+  // Preserve link identity, including parallel links, rather than using the
+  // deduplicated edges used for layout.
+  const pairs = new Map<string, number>();
+  const represented = new Set<unknown>();
+  for (const link of topology.links ?? []) {
+    const ends = (link.interfaces ?? []).filter((end) => end.node && pos.has(end.node));
+    if (ends.length === 1) {
+      const end = ends[0]!;
+      const p = pos.get(end.node!)!;
+      const dx = p.x - 320, dy = p.y - 180;
+      const length = Math.hypot(dx, dy) || 1;
+      const line = svg("line", { x1: p.x, y1: p.y, x2: p.x + (dx || 1) / length * 60, y2: p.y + dy / length * 60, class: "edge" });
+      interactive(line, `Link ${end.node}`, link);
+      linkLayer.append(line);
+    }
+    for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) {
+      const first = ends[i]!;
+      const second = ends[j]!;
+      if (first.node === second.node) continue;
+      const a = pos.get(first.node!)!;
+      const b = pos.get(second.node!)!;
+      const key = [first.node!, second.node!].sort().join("\0");
+      const count = pairs.get(key) ?? 0;
+      pairs.set(key, count + 1);
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy) || 1;
+      const offset = count === 0 ? 0 : (Math.ceil(count / 2) * (count % 2 ? 12 : -12));
+      const x1 = a.x - dy / length * offset, y1 = a.y + dx / length * offset;
+      const x2 = b.x - dy / length * offset, y2 = b.y + dx / length * offset;
+      const line = svg("line", { x1, y1, x2, y2, class: "edge" });
+      interactive(line, `Link ${first.node} – ${second.node}`, link);
+      linkLayer.append(line);
+      for (const [end, t1, t2] of [[first, 0, 0.5], [second, 0.5, 1]] as const) {
+        const intf = topology.nodes?.[end.node!]?.interfaces?.find((candidate) =>
+          candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex));
+        const area = intf?.ospf && typeof intf.ospf === "object" && !Array.isArray(intf.ospf) ? intf.ospf.area : undefined;
+        const color = areaColor(area);
+        if (color) ospfLayer.append(svg("line", {
+          x1: x1 + (x2 - x1) * t1, y1: y1 + (y2 - y1) * t1,
+          x2: x1 + (x2 - x1) * t2, y2: y1 + (y2 - y1) * t2,
+          stroke: color, class: "ospf-link",
+        }));
+      }
+      // Match eBGP neighbors to this link's interface so parallel links remain distinct.
+      const hasEbgp = [[first, second], [second, first]].some(([local, remote]) => {
+        const neighbors = topology.nodes?.[local!.node!]?.bgp?.neighbors;
+        return Array.isArray(neighbors) && neighbors.some((neighbor) =>
+          neighbor && typeof neighbor === "object" && !Array.isArray(neighbor)
+          && neighbor.type === "ebgp" && neighbor.name === remote!.node
+          && (neighbor.ifindex == null || neighbor.ifindex === local!.ifindex));
+      });
+      if (hasEbgp) bgpLayer.append(svg("line", {
+        x1: x1 - dy / length * 5, y1: y1 + dx / length * 5,
+        x2: x2 - dy / length * 5, y2: y2 + dx / length * 5, class: "bgp-ebgp",
+      }));
+      for (const [end, t] of [[first, Math.min(0.45, (radiusFor(first.node!) + 14) / length)], [second, Math.max(0.55, 1 - (radiusFor(second.node!) + 14) / length)]] as const) {
+        const node = topology.nodes?.[end.node!];
+        const intf = node?.interfaces?.find((candidate) =>
+          candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex),
+        ) ?? end;
+        represented.add(intf);
+        const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
+        interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
+        interfaceLayer.append(bubble);
+      }
+    }
+  }
+  const bgpSeen = new Set<string>();
+  for (const name of nodes) {
+    const neighbors = topology.nodes![name]!.bgp?.neighbors;
+    if (!Array.isArray(neighbors)) continue;
+    for (const neighbor of neighbors) {
+      if (!neighbor || typeof neighbor !== "object" || Array.isArray(neighbor) || neighbor.type !== "ibgp" || typeof neighbor.name !== "string") continue;
+      const peer = neighbor.name;
+      const a = pos.get(name), b = pos.get(peer);
+      if (!a || !b || name === peer) continue;
+      const key = [name, peer].sort().join("\0");
+      if (bgpSeen.has(key)) continue;
+      bgpSeen.add(key);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const mx = (a.x + b.x) / 2 - dy * 0.25, my = (a.y + b.y) / 2 + dx * 0.25;
+      bgpLayer.append(svg("path", { d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`, class: "bgp-ibgp" }));
+    }
+  }
+  for (const name of nodes) {
+    const p = pos.get(name)!;
+    const remaining = (topology.nodes![name]!.interfaces ?? []).filter((intf) => !represented.has(intf));
+    const outward = Math.atan2(p.y - 180, p.x - 320);
+    remaining.forEach((intf, index) => {
+      const angle = outward + (index - (remaining.length - 1) / 2) * 0.35;
+      const distance = radiusFor(name) + 14;
+      const bubble = svg("circle", { cx: p.x + distance * Math.cos(angle), cy: p.y + distance * Math.sin(angle), r: 7, class: "interface-bubble" });
+      interactive(bubble, `Interface ${name} · ${intf.ifname ?? "unnamed"}`, intf);
+      interfaceLayer.append(bubble);
+    });
+  }
+  for (const name of nodes) {
+    const p = pos.get(name)!;
+    const node = topology.nodes![name]!;
+    const details = detailsFor(name);
+    // Approximate the width of each label, with room for the circle's curvature.
+    const radius = radiusFor(name);
+    const area = areaColor(node.ospf?.area);
+    if (area) ospfLayer.append(svg("circle", { cx: p.x, cy: p.y, r: radius + 5, stroke: area, class: "ospf-halo" }));
+    const group = svg("g", { class: "node" });
+    group.append(svg("circle", { cx: p.x, cy: p.y, r: radius }));
+    const label = svg("text", { x: p.x, y: p.y - 2, "text-anchor": "middle" });
+    label.textContent = name;
+    const sub = svg("text", { x: p.x, y: p.y + 14, "text-anchor": "middle", class: "sub" });
+    sub.textContent = details;
+    group.append(label, sub);
+    interactive(group, `Node ${name}`, node);
+    nodeLayer.append(group);
+  }
+  ospfLegend.replaceChildren();
+  for (const [area, color] of areas) {
+    const entry = document.createElement("span");
+    const swatch = document.createElement("i");
+    swatch.style.backgroundColor = color;
+    entry.append(swatch, document.createTextNode(`Area ${area}`));
+    ospfLegend.append(entry);
+  }
+  const applyLayers = () => {
+    const ospfOn = ospfButton.getAttribute("aria-pressed") === "true";
+    const bgpOn = bgpButton.getAttribute("aria-pressed") === "true";
+    ospfLayer.style.display = ospfOn ? "" : "none";
+    bgpLayer.style.display = bgpOn ? "" : "none";
+    ospfLegend.hidden = !ospfOn || areas.size === 0;
+  };
+  for (const button of [ospfButton, bgpButton]) button.onclick = () => {
+    button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
+    applyLayers();
+  };
+  applyLayers();
 }
 
 function run(): void {
@@ -262,6 +470,11 @@ function run(): void {
     lastResult = undefined;
     renderJson(undefined);
     graph.innerHTML = "";
+    graphProperties.hidden = true;
+    ospfButton.hidden = true;
+    bgpButton.hidden = true;
+    bgpLegend.hidden = true;
+    ospfLegend.hidden = true;
   }
 }
 

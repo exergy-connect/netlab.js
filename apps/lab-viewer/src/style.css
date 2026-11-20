@@ -110,7 +110,7 @@ textarea {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .actions .check {
@@ -313,3 +313,51 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.graph-hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 0 0 0.4rem;
+}
+
+.graph-canvas { position: relative; }
+.graph-properties {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: min(24rem, 75%);
+  max-height: calc(100% - 1rem);
+  overflow: auto;
+  padding: 0.75rem;
+  background: #151d26;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 18px #0009;
+  z-index: 1;
+}
+.graph-properties[hidden] { display: none; }
+.graph-properties-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.graph-properties-head button { padding: 0 0.4rem; font-size: 1.2rem; }
+.graph-properties pre { margin: 0.5rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.72rem; }
+.edge { cursor: pointer; pointer-events: stroke; stroke-width: 8; stroke-opacity: 0.65; }
+.interface-bubble { fill: #0c1015; stroke: #fbbf24; stroke-width: 2; cursor: pointer; }
+.node { cursor: pointer; }
+.edge:hover, .edge:focus, .edge.is-selected { stroke: #fbbf24; stroke-opacity: 1; }
+.interface-bubble:hover, .interface-bubble:focus, .interface-bubble.is-selected { fill: #fbbf24; }
+.node:hover circle, .node:focus circle, .node.is-selected circle { stroke: #fbbf24; stroke-width: 3; }
+
+.graph-layers, .ospf-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem; }
+.graph-layers button { font-size: 0.75rem; padding: 0.25rem 0.55rem; border: 1px solid var(--line); background: #0c1015; color: var(--ink); }
+.graph-layers button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.graph-layers button[aria-pressed="false"] { color: var(--muted); }
+.bgp-key, .ospf-legend { color: var(--muted); font-size: 0.72rem; }
+.ebgp-key { color: #fbbf24; font-weight: bold; }
+.ibgp-key { color: #c084fc; font-weight: bold; font-size: 1rem; }
+.ospf-legend[hidden] { display: none; }
+.ospf-legend span { display: inline-flex; align-items: center; gap: 0.25rem; }
+.ospf-legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; }
+.ospf-layer, .bgp-layer { pointer-events: none; }
+.ospf-link { stroke-width: 4; opacity: 0.8; }
+.ospf-halo { fill: none; stroke-width: 3; }
+.bgp-ebgp { stroke: #fbbf24; stroke-width: 2.5; stroke-dasharray: 1 6; stroke-linecap: round; }
+.bgp-ibgp { fill: none; stroke: #c084fc; stroke-width: 2; }
