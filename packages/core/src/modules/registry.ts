@@ -9,6 +9,7 @@ import {
   stripModuleMeta,
   type ModuleDef,
 } from "./defs.js";
+import * as gatewayMod from "./gateway.js";
 import * as vlanMod from "./vlan.js";
 import * as vrfMod from "./vrf.js";
 import * as vxlanMod from "./vxlan.js";
@@ -54,6 +55,7 @@ function asHooks(m: {
 
 const MODULES: ModuleHooks[] = [
   asHooks(vlanMod),
+  asHooks(gatewayMod),
   asHooks(vrfMod),
   asHooks(vxlanMod),
   asHooks(ospfMod),
