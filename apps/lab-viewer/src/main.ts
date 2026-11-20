@@ -88,6 +88,7 @@ const fullJsonBox = app.querySelector<HTMLInputElement>("#full-json")!;
 
 /** Last successful transform; kept so the Full JSON checkbox can re-render. */
 let lastResult: Topology | undefined;
+let sourceUrl: string | undefined;
 
 src.value = SAMPLE;
 
@@ -115,6 +116,8 @@ function clearDiagnostics(): void {
 function showDiagnostics(opts: {
   errors?: string[];
   warnings?: string[];
+  source?: string;
+  sourceUrl?: string;
 }): void {
   const errors = opts.errors ?? [];
   const warnings = opts.warnings ?? [];
@@ -133,6 +136,11 @@ function showDiagnostics(opts: {
         <ul>
           ${errors.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}
         </ul>
+        ${opts.sourceUrl ? `<p>Lab file: ${escapeHtml(opts.sourceUrl)}</p>` : ""}
+        <h3>Topology YAML</h3>
+        <pre class="error-source">${escapeHtml(opts.source ?? "")}</pre>
+        <button class="copy-error" type="button">Copy error text</button>
+        <span class="copy-status" role="status"></span>
       </div>`);
   }
   if (warnings.length) {
@@ -145,6 +153,19 @@ function showDiagnostics(opts: {
       </div>`);
   }
   diagnosticsEl.innerHTML = sections.join("");
+  const copyButton = diagnosticsEl.querySelector<HTMLButtonElement>(".copy-error");
+  if (copyButton) {
+    const text = ["Transform errors", ...errors, ...(opts.sourceUrl ? [`Lab file: ${opts.sourceUrl}`] : []), "", "Topology YAML:", opts.source ?? ""].join("\n");
+    copyButton.addEventListener("click", async () => {
+      const copyStatus = diagnosticsEl.querySelector<HTMLSpanElement>(".copy-status")!;
+      try {
+        await navigator.clipboard.writeText(text);
+        copyStatus.textContent = "Copied.";
+      } catch {
+        copyStatus.textContent = "Could not copy. Select the text and copy it manually.";
+      }
+    });
+  }
 }
 
 function escapeHtml(text: string): string {
@@ -234,12 +255,14 @@ function run(): void {
       : `OK — stages: ${JSON.stringify(stages)}`;
     showDiagnostics({
       errors: errs.map(formatDiagnostic),
+      source: src.value,
+      sourceUrl,
       warnings: warns.map(formatDiagnostic),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     status.textContent = "Transform failed";
-    showDiagnostics({ errors: [message] });
+    showDiagnostics({ errors: [message], source: src.value, sourceUrl });
     lastResult = undefined;
     renderJson(undefined);
     graph.innerHTML = "";
@@ -257,6 +280,7 @@ examples.addEventListener("change", async () => {
     const source = await response.text();
     if (generation !== sourceGeneration) return;
     src.value = source;
+    sourceUrl = examples.value;
     fitTextarea();
     catalogStatus.textContent = "Topology loaded. Edit it or select Transform.";
   } catch (error) {
