@@ -1,0 +1,16 @@
+no_propagate: [ start_lag_id ]
+start_lag_id: 1
+lacp: fast
+lacp_mode: active
+attributes:
+  global:
+    lacp: str
+    lacp_mode: str
+  node:
+    lacp: str
+    lacp_mode: str
+  link:
+    members: list
+    ifindex: int
+    lacp: str
+    lacp_mode: str

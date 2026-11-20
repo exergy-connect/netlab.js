@@ -159,7 +159,7 @@ export function assignInterfaceAddresses(topology: Topology, link: Link): void {
     String(a.node).localeCompare(String(b.node)),
   );
   const nodes = topology.nodes ?? {};
-  const isP2p = link.type === "p2p" && ifaces.length === 2;
+  const isP2p = (link.type === "p2p" || link.type === "lag") && ifaces.length === 2;
 
   for (const af of ["ipv4", "ipv6"] as Af[]) {
     const cidr = prefix[af];

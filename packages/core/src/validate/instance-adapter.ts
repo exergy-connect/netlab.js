@@ -86,6 +86,7 @@ export function toYangInstance(topology: Topology): JsonObject {
     topoObj.mpls = topology.mpls;
     adaptMpls(topoObj);
   }
+  if (topology.lag !== undefined) topoObj.lag = topology.lag;
   if (topology.gateway !== undefined) {
     topoObj.gateway = topology.gateway;
     adaptGateway(topoObj);

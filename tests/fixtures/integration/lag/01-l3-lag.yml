@@ -1,0 +1,58 @@
+message: |
+  The device under is a router with a L3 LAG link connected to a FRR device. The
+  FRR device should be able to ping the loopback interface of DUT.
+
+defaults.sources.extra: [ ../wait_times.yml, ../warnings.yml ]
+
+groups:
+  probes:
+    device: eos
+    module: [ lag, routing ]
+    members: [ x1, x2 ]
+    routing.static:
+    - ipv4: 0.0.0.0/0
+      nexthop.node: dut
+
+nodes:
+  dut:
+    module: [ lag ]
+    role: router
+  x1:
+    role: host
+  x2:
+    role: host
+
+links:
+- lag.members: [dut-x1, dut-x1]
+  mtu: 1500
+- lag.members: [dut-x2, dut-x2]
+  mtu: 1400
+
+validate:
+  lag:
+    description: Check LAG link with DUT
+    wait: lacp_setup
+    wait_msg: Waiting for LAG to start
+    nodes: [ x1, x2 ]
+    devices: [ eos ]
+    pass: The LAG with DUT is active
+    fail: The LAG did not start correctly
+    show: port-channel | json
+    valid: >-
+      len(portChannels['Port-Channel1'].activePorts) == 2
+  ping:
+    description: Initial IPv4 ping
+    nodes: [ x1 ]
+    wait: ping
+    exec:
+      eos: ping x2
+    valid: |
+      'bytes from' in stdout
+  ping_ptb:
+    description: IPv4 ping with large packet (expecting Frag Needed)
+    nodes: [ x1 ]
+    level: warning
+    exec:
+      eos: ping x2 df-bit size 1420
+    valid: |
+      'Frag needed and DF set' in stdout
