@@ -66,7 +66,8 @@ jobs:
           NETLAB_ACTION_SCRIPT: action-dist/normalize-topology.mjs
 
       - name: Create action fixture
-        run: printf 'defaults.device: frr\nnodes: { r1: }\n' > "$RUNNER_TEMP/topology.yml"
+        run: |
+          printf 'defaults.device: frr\nnodes: { r1: }\n' > "$RUNNER_TEMP/topology.yml"
 
       - name: Exercise composite action
         id: topology
