@@ -97,8 +97,8 @@ module netlab-types {
 
   typedef unicast-mac-address {
     description "48-bit MAC address with the multicast bit clear.";
-    type string {
-      pattern '[0-9a-fA-F][02468aAcCeE](:[0-9a-fA-F]{2}){5}|[0-9a-fA-F][02468aAcCeE](-[0-9a-fA-F]{2}){5}|[0-9a-fA-F][02468aAcCeE][0-9a-fA-F]{2}(\.[0-9a-fA-F]{4}){2}';
+    type mac-address {
+      pattern '[0-9a-fA-F][02468aAcCeE].*';
     }
   }
 
