@@ -116,7 +116,7 @@ export function transformNodes(topology: Topology): void {
       mac: macFromId(String(mgmtPool.mac ?? "CA-FE-00-00-00-00"), id),
     };
 
-    if (node.role === "router" || node.role === "gateway" || !node.role) {
+    if ((node as Record<string, unknown>).loopback !== false && (node.role === "router" || node.role === "gateway" || !node.role)) {
       const loName = formatIfName(String(def.loopback_interface_name ?? "lo{ifindex}"), 0);
       const prefix = allocateNthFromPool(topology, "loopback", id);
       const loopback: JsonObject = {
@@ -133,7 +133,7 @@ export function transformNodes(topology: Topology): void {
       if (typeof prefix.ipv6 === "string") {
         loopback.ipv6 = prefix.ipv6.endsWith("/128") ? prefix.ipv6 : hostInSubnet(prefix.ipv6, 1);
       }
-      node.loopback = loopback;
+      node.loopback = { ...loopback, ...(node.loopback ?? {}) };
     }
 
     node.af = node.af ?? {};

@@ -10,6 +10,7 @@ export function toYangInstance(topology: Topology): JsonObject {
   const nodesDict = topology.nodes ?? {};
   const nodesList = Object.entries(nodesDict).map(([name, node]) => {
     const n: JsonObject = { ...(node as JsonObject), name: node.name ?? name };
+    if (n.loopback === false) delete n.loopback;
     if (Array.isArray(n.interfaces)) {
       n.interfaces = (n.interfaces as JsonObject[]).map((intf) => {
         const copy = { ...intf };
@@ -31,6 +32,7 @@ export function toYangInstance(topology: Topology): JsonObject {
 
   const links = (topology.links ?? []).map((link, idx) => {
     const l: JsonObject = { ...(link as JsonObject) };
+    if (l.ospf === false || l.ospf === true) delete l.ospf;
     if (l.linkindex === undefined) l.linkindex = idx + 1;
     // Runtime uses qualified internal names; map onto host-module leaves for xYang
     const qName = l[INTERNAL_LINKNAME];

@@ -47,7 +47,7 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
   // p2p interfaces → point-to-point; skip external/EBGP links; stub → passive
   for (const intf of node.interfaces ?? []) {
     normalizeArea(intf);
-    if (intf.role === "external") {
+    if (intf.role === "external" || (intf as JsonObject).ospf === false) {
       delete intf.ospf;
       continue;
     }

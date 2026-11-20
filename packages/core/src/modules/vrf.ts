@@ -1,7 +1,26 @@
 import type { ModuleHooks } from "./registry.js";
 import type { JsonObject, Node, Topology, TransformContext } from "../types.js";
+import { adjustLinkObject, getNextLinkindex } from "../links/links.js";
+import { INTERNAL_LINKNAME } from "../types.js";
 
 export const name = "vrf";
+
+export function expandVrfLinks(topology: Topology, ctx: TransformContext): void {
+  for (const [name, value] of Object.entries(topology.vrfs ?? {})) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.links)) continue;
+    topology.links ??= [];
+    value.links.forEach((raw, index) => {
+      const path = `vrfs.${name}.links[${index + 1}]`;
+      const link = adjustLinkObject(raw, path, topology.nodes ?? {}, ctx.diagnostics);
+      if (!link) return;
+      link.vrf = name;
+      link.linkindex = getNextLinkindex(topology);
+      link[INTERNAL_LINKNAME] = path;
+      topology.links!.push(link);
+    });
+    delete value.links;
+  }
+}
 
 export function module_pre_transform(topology: Topology, _ctx: TransformContext): void {
   const vrfs = topology.vrfs;

@@ -17,7 +17,7 @@ TypeScript core is usable for transform + optional YANG validation:
 | Devices | `none`, `linux`, `frr`, `bird`, `iosv` (others remap to `frr` with a warning) |
 | Provider | `clab` only |
 | Modules | `vlan`, `vrf`, `vxlan`, `ospf`, `isis`, `bgp`, `evpn` |
-| Validation | Stage-gated xYang checks: `user_input` → `normalized` → `addressed` → `transformed` |
+| Validation | One xYang check after input setup; later stages can be checked explicitly with `validateAt` |
 | Lab viewer | Paste YAML, transform, graph, nodes/links JSON (optional full JSON + YANG validate) |
 
 Requires Node.js 24+. See [CHANGELOG.md](CHANGELOG.md) for recent changes.

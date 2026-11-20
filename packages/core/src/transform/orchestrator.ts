@@ -32,13 +32,6 @@ export function transform(topology: Topology, options: TransformOptions = {}): T
     afterSetup: (topo, ctx) => {
       const d = ctx.diagnostics as DiagnosticCollector;
       checkpoint(topo, "user_input", d);
-      checkpoint(topo, "normalized", d);
-    },
-    afterAddressed: (topo, ctx) => {
-      checkpoint(topo, "addressed", ctx.diagnostics as DiagnosticCollector);
-    },
-    afterTransformed: (topo, ctx) => {
-      checkpoint(topo, "transformed", ctx.diagnostics as DiagnosticCollector);
     },
   });
 

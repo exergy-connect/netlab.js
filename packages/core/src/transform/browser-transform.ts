@@ -17,7 +17,7 @@ export type TransformResult = {
 };
 
 /**
- * Browser transform. Pass `validate: true` to run YANG stage checkpoints
+ * Browser transform. Pass `validate: true` to run YANG validation once after input setup
  * (lab-viewer supplies a Vite fs/path shim for the yang/ tree).
  */
 export function transform(topology: Topology, options: TransformOptions = {}): TransformResult {
@@ -35,13 +35,6 @@ export function transform(topology: Topology, options: TransformOptions = {}): T
     afterSetup: (topo, ctx) => {
       const d = ctx.diagnostics as DiagnosticCollector;
       checkpoint(topo, "user_input", d);
-      checkpoint(topo, "normalized", d);
-    },
-    afterAddressed: (topo, ctx) => {
-      checkpoint(topo, "addressed", ctx.diagnostics as DiagnosticCollector);
-    },
-    afterTransformed: (topo, ctx) => {
-      checkpoint(topo, "transformed", ctx.diagnostics as DiagnosticCollector);
     },
   });
 
