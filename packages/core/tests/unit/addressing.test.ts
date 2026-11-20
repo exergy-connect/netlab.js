@@ -78,13 +78,30 @@ describe("addressing IPAM", () => {
   });
 });
 
-it("embeds all vendored Netlab defaults without changing their content", async () => {
+it("embeds vendored data as equivalent native objects", async () => {
   const { readdirSync, readFileSync } = await import("node:fs");
-  const { DEFAULTS_YAML } = await import("../../src/load/embedded-yaml.js");
-  const dir = new URL("../../../../data/defaults/", import.meta.url);
-  const files = readdirSync(dir).filter((name) => name.endsWith(".yml")).sort();
-  assert.deepEqual(Object.keys(DEFAULTS_YAML).sort(), files.map((name) => name.slice(0, -4)));
-  for (const file of files) {
-    assert.equal(DEFAULTS_YAML[file.slice(0, -4)], readFileSync(new URL(file, dir), "utf8"));
+  const yaml = await import("js-yaml");
+  const { DEFAULTS_DATA } = await import("../../src/load/embedded-data.js");
+  const { DEVICE_DATA, DAEMON_DATA } = await import("../../src/devices/embedded-data.js");
+  const { MODULE_DATA } = await import("../../src/modules/embedded-data.js");
+  for (const [directory, embedded] of Object.entries({
+    defaults: DEFAULTS_DATA, devices: DEVICE_DATA, daemons: DAEMON_DATA, modules: MODULE_DATA,
+  })) {
+    const dir = new URL(`../../../../data/${directory}/`, import.meta.url);
+    const files = readdirSync(dir).filter((name) => name.endsWith(".yml")).sort();
+    assert.deepEqual(Object.keys(embedded).sort(), files.map((name) => name.slice(0, -4)));
+    for (const file of files) {
+      assert.deepEqual(embedded[file.slice(0, -4)], yaml.load(readFileSync(new URL(file, dir), "utf8")), `${directory}/${file}`);
+    }
   }
+});
+
+it("provides independent copies of embedded defaults for each topology", () => {
+  const first = systemDefaults();
+  const second = systemDefaults();
+  (first.addressing as any).p2p.ipv4 = "192.0.2.0/24";
+  (first.bgp as any).attributes.global.as = "modified";
+  assert.notEqual((second.addressing as any).p2p.ipv4, "192.0.2.0/24");
+  assert.notEqual((second.bgp as any).attributes.global.as, "modified");
+  assert.notEqual(((systemDefaults().bgp as any).attributes.global.as), "modified");
 });

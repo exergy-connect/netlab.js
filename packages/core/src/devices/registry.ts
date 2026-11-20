@@ -1,18 +1,16 @@
-import * as yaml from "js-yaml";
 import type { DeviceDef, JsonObject } from "../types.js";
 import { SUPPORTED_DEVICES } from "../types.js";
 import { deepMerge } from "../data/merge.js";
-import { DAEMON_YAML, DEVICE_YAML } from "./embedded-yaml.js";
+import { DAEMON_DATA, DEVICE_DATA } from "./embedded-data.js";
 
 const SUPPORTED = new Set<string>(SUPPORTED_DEVICES);
 
 let cache: Record<string, DeviceDef> | undefined;
 
-function loadYamlMap(src: Record<string, string>): Record<string, DeviceDef> {
+function loadDeviceMap(src: Record<string, JsonObject>): Record<string, DeviceDef> {
   const out: Record<string, DeviceDef> = {};
-  for (const [name, text] of Object.entries(src)) {
-    const parsed = (yaml.load(text) as JsonObject) ?? {};
-    out[name] = { ...parsed, name };
+  for (const [name, data] of Object.entries(src)) {
+    out[name] = { ...structuredClone(data), name };
   }
   return out;
 }
@@ -60,8 +58,8 @@ function resolveParents(raw: Record<string, DeviceDef>): Record<string, DeviceDe
 
 export function loadDevices(): Record<string, DeviceDef> {
   if (cache) return cache;
-  const devices = loadYamlMap(DEVICE_YAML);
-  mergeDaemons(devices, loadYamlMap(DAEMON_YAML));
+  const devices = loadDeviceMap(DEVICE_DATA);
+  mergeDaemons(devices, loadDeviceMap(DAEMON_DATA));
   const resolved = resolveParents(devices);
 
   // Apply clab feature overlays; drop non-clab provider blocks from runtime defs

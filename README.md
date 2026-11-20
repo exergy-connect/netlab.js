@@ -184,7 +184,7 @@ implement all external source or plugin behavior.
 
 The YAML files in `data/defaults/` are vendored from Netlab's `netsim/defaults/`
 at commit `fd40227212637f1ed69bd418334cc14fc8ee7f69`. Run
-`npm run embed:data` after updating them. The JavaScript runtime currently
+`npm run embed:data` after updating them or the vendored device, daemon, and module data. The generator parses the YAML once and embeds native objects in TypeScript; the runtime does not parse these defaults. The JavaScript runtime currently
 chooses `clab` and `frr` as its own provider and device defaults; Netlab's
 separate `topology-defaults.yml` instead defaults to `libvirt` and leaves the
 device unspecified.
