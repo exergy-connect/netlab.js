@@ -11,7 +11,7 @@ import { transformAndExport } from "../../src/transform/orchestrator.js";
 const yangDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../yang");
 
 it("models the normalized core graph and rejects unsupported devices", () => {
-  const parser = new YangParser({ include_path: [yangDir], expand_uses: true });
+  const parser = new YangParser({ includePath: [yangDir], expandUses: true });
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const result = transformAndExport(loadTopologyString(`
 defaults.device: frr
@@ -24,19 +24,19 @@ links: [[r1, r2]]
   assert.ok(result.topology.nodes?.r1);
   assert.equal(Object.hasOwn(output.topology, "defaults"), false);
   assert.ok(result.topology.defaults);
-  const valid = validator.validate(output);
+  const valid = validator.validate(output, { nativeJson: true });
   assert.equal(valid.isValid, true, valid.errors.join("\n"));
   const invalid = structuredClone(output);
   invalid.topology.nodes[0]!.device = "unsupported";
-  assert.equal(validator.validate(invalid).isValid, false);
+  assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
 });
 
 
 it("validates the BGP integration reference against the output model", () => {
-  const parser = new YangParser({ include_path: [yangDir], expand_uses: true });
+  const parser = new YangParser({ includePath: [yangDir], expandUses: true });
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const reference = JSON.parse(readFileSync(path.join(yangDir, "../reference/integration/bgp/01-ebgp-session.json"), "utf8"));
-  const result = validator.validate(reference);
+  const result = validator.validate(reference, { nativeJson: true });
   assert.equal(result.isValid, true, result.errors.join("\n"));
   for (const mutate of [
     (data: any) => { data.topology.nodes[0].bgp.as = "invalid"; },
@@ -47,12 +47,12 @@ it("validates the BGP integration reference against the output model", () => {
   ]) {
     const invalid = structuredClone(reference);
     mutate(invalid);
-    assert.equal(validator.validate(invalid).isValid, false);
+    assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
   }
 });
 
 it("validates route reflectors and simultaneous iBGP and local-AS eBGP sessions", () => {
-  const parser = new YangParser({ include_path: [yangDir], expand_uses: true });
+  const parser = new YangParser({ includePath: [yangDir], expandUses: true });
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const result = transformAndExport(loadTopologyString(`
 defaults.device: frr
@@ -72,19 +72,19 @@ links:
 `), { yangDir });
   assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
   const output = exportMachineTopology(result.topology);
-  const validation = validator.validate(output);
+  const validation = validator.validate(output, { nativeJson: true });
   assert.equal(validation.isValid, true, validation.errors.join("\n"));
   const invalid = structuredClone(output) as any;
   invalid.topology.nodes[0].bgp.sessions.ipv4 = ["invalid"];
-  assert.equal(validator.validate(invalid).isValid, false);
+  assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
   const invalidLink = structuredClone(output) as any;
   invalidLink.topology.links[0].interfaces[0].bgp.local_as = "invalid";
-  assert.equal(validator.validate(invalidLink).isValid, false);
+  assert.equal(validator.validate(invalidLink, { nativeJson: true }).isValid, false);
 });
 
 it("validates BGP AS lists, confederations, import policies and VRFs", async () => {
   const { projectBgpDictionaries } = await import("./bgp-yang-projection.js");
-  const parser = new YangParser({ include_path: [yangDir], expand_uses: true });
+  const parser = new YangParser({ includePath: [yangDir], expandUses: true });
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const result = transformAndExport(loadTopologyString(`
 defaults.device: none
@@ -123,7 +123,7 @@ nodes:
 
 it("validates transformed BGP confederation output", async () => {
   const { projectBgpDictionaries } = await import("./bgp-yang-projection.js");
-  const parser = new YangParser({include_path: [yangDir], expand_uses: true});
+  const parser = new YangParser({includePath: [yangDir], expandUses: true});
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const result = transformAndExport(loadTopologyString(`
 defaults.device: frr

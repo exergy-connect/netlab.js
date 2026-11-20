@@ -20,7 +20,7 @@ export function validateAt(
   const yangDir = options.yangDir ?? defaultYangDir();
   const validator = createValidator(yangDir);
   const instance = toYangInstance(topology);
-  const result = validator.validate(instance);
+  const result = validator.validate(instance, { nativeJson: true });
 
   if (options.diagnostics) {
     for (const err of result.errors) {

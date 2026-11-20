@@ -55,5 +55,5 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
 
 export function createValidator(yangDir?: string): YangValidator {
   const mod = loadNetlabYang(yangDir);
-  return new YangValidator(mod, { nativeJson: true });
+  return new YangValidator(mod);
 }
