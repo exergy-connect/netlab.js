@@ -35,6 +35,7 @@ module netlab-gateway {
   augment "/nt:topology/nt:groups" { container gateway { uses gateway-attributes; } }
   augment "/nt:topology/nt:nodes" { container gateway { uses gateway-attributes; } }
   augment "/nt:topology/nt:nodes/nt:interfaces" { container gateway { uses gateway-attributes; } }
+  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" { container gateway { uses gateway-attributes; } }
   augment "/nt:topology/nt:links" { container gateway { uses gateway-attributes; } }
   augment "/nt:topology/nt:links/nt:interfaces" { container gateway { uses gateway-attributes; } }
   augment "/nt:topology/vlan:vlans" { container gateway { uses gateway-attributes; } }

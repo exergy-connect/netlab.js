@@ -119,8 +119,16 @@ function dictToNamedList(d: JsonValue): JsonObject[] {
   return Object.entries(d as JsonObject).map(([name, v]) => ({
     ...(typeof v === "object" && v && !Array.isArray(v) ? (v as JsonObject) : {}),
     name,
-  })).map(item => {
+  })).map((item: JsonObject) => {
     adaptGateway(item);
+    const evpn = item.evpn;
+    if (evpn && typeof evpn === "object" && !Array.isArray(evpn)) {
+      item.evpn = { ...evpn };
+      for (const key of ["import", "export"]) {
+        const value = (item.evpn as JsonObject)[key];
+        if (typeof value === "string") (item.evpn as JsonObject)[key] = [value];
+      }
+    }
     return item;
   });
 }

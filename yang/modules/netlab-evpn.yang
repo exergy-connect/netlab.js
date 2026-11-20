@@ -3,6 +3,8 @@ module netlab-evpn {
   namespace "urn:exergy-connect:netlab:evpn";
   prefix evpn;
 
+  import netlab-vrf { prefix vrf; }
+
   import netlab-topology {
     prefix nt;
   }
@@ -16,6 +18,9 @@ module netlab-evpn {
 
   grouping evpn-common {
     description "EVPN attributes shared by topology and node containers.";
+    leaf as { type uint32; }
+    leaf _junos_default_macvrf { type boolean; }
+    anydata ethernet_segments;
     leaf-list session { type string; }
     leaf transport { type string; }
     leaf-list vlans { type string; }
@@ -33,9 +38,19 @@ module netlab-evpn {
   augment "/nt:topology" {
     container evpn {
       uses evpn-common;
-      leaf as { type uint32; }
     }
   }
+
+  augment "/nt:topology/nt:groups" { container evpn { uses evpn-common; } }
+
+  grouping evpn-vrf-attrs {
+    uses evpn-rt-attrs;
+    leaf bundle { type enumeration { enum vlan_aware; enum vlan; enum port; enum port_vlan; } }
+    leaf transit_vni { type union { type uint32 { range "1..16777215"; } type string; type boolean; } }
+  }
+
+  augment "/nt:topology/vrf:vrfs" { container evpn { uses evpn-vrf-attrs; } }
+  augment "/nt:topology/nt:nodes/vrf:vrfs" { container evpn { uses evpn-vrf-attrs; } }
 
   augment "/nt:topology/nt:nodes" {
     container evpn {

@@ -31,6 +31,7 @@ module netlab-bgp {
   }
 
   grouping bgp-common {
+    anydata multihop;
     leaf advertise_loopback { type boolean; }
     leaf next_hop_self { type boolean; }
     leaf replace_global_as { type boolean; }
@@ -61,6 +62,7 @@ module netlab-bgp {
   }
 
   grouping bgp-interface-attrs {
+    leaf allowas_in { type union { type boolean; type uint32; } }
     leaf local_as {
       type uint32;
     }
@@ -103,6 +105,7 @@ module netlab-bgp {
   augment "/nt:topology/nt:groups" {
     container bgp {
       uses bgp-rr-attrs;
+      uses bgp-common;
     }
   }
 
@@ -111,6 +114,9 @@ module netlab-bgp {
       uses bgp-rr-attrs;
       uses bgp-common;
       uses bgp-imports;
+      leaf ipv4 { type boolean; }
+      leaf ipv6 { type boolean; }
+      anydata neighbors;
       list originate {
         leaf ipv4 { type string; }
         leaf ipv6 { type string; }

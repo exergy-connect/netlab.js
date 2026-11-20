@@ -16,6 +16,7 @@ module netlab-isis {
 
   grouping isis-common {
     description "IS-IS attributes shared by topology and node containers.";
+    leaf instance { type string; }
     leaf area {
       type string;
     }

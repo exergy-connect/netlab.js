@@ -45,6 +45,7 @@ module netlab-vlan {
     anydata ospf {
       description "OSPF settings for VLAN interfaces.";
     }
+    leaf vrf { type string; }
     leaf role { type string; }
     leaf name {
       type string;
@@ -63,6 +64,7 @@ module netlab-vlan {
     container prefix {
       leaf ipv4 { type string; }
       leaf ipv6 { type string; }
+      leaf allocation { type string; }
     }
   }
 
@@ -79,6 +81,7 @@ module netlab-vlan {
 
   augment "/nt:topology/nt:groups" {
     container vlan { leaf mode { type string; } }
+    anydata vlans;
   }
 
   augment "/nt:topology/nt:nodes" {

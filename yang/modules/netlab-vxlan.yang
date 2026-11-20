@@ -16,6 +16,7 @@ module netlab-vxlan {
 
   grouping vxlan-common {
     description "VXLAN attributes shared by topology and node containers.";
+    leaf use_v6_vtep { type boolean; }
     leaf domain { type string; }
     leaf flooding { type string; }
     leaf-list vlans { type string; }
@@ -34,7 +35,6 @@ module netlab-vxlan {
   augment "/nt:topology" {
     container vxlan {
       uses vxlan-common;
-      leaf use_v6_vtep { type boolean; }
     }
   }
 

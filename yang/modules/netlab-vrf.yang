@@ -16,6 +16,7 @@ module netlab-vrf {
 
   grouping vrf-definition {
     description "Shared VRF object fields (global and per-node).";
+    anydata bgp;
     leaf name {
       type string;
     }
@@ -47,13 +48,11 @@ module netlab-vrf {
     }
   }
 
+  augment "/nt:topology/nt:groups" { anydata vrfs; }
+
   augment "/nt:topology/nt:links" {
     leaf vrf { type string; }
   }
 
-  augment "/nt:topology/nt:nodes/nt:interfaces" {
-    leaf vrf {
-      type string;
-    }
-  }
+  augment "/nt:topology/nt:nodes/nt:interfaces/nt:neighbors" { leaf vrf { type string; } }
 }
