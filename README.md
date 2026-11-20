@@ -28,7 +28,7 @@ npm install
 npm run build
 npm test
 npm run viewer        # local apps/lab-viewer
-npm run build:pages   # sync viewer into docs/ for GitHub Pages
+npm run build:pages   # build the GitHub Pages site locally into docs/
 ```
 
 `npm install` sets `core.hooksPath=.githooks`. The `pre-push` hook runs `npm run build` and blocks the push if the build fails.
@@ -59,7 +59,7 @@ data/                 Embedded Netlab YAML (devices, daemons, modules, defaults)
 packages/core/        @exergy-connect/netlab transform + validation library
 apps/lab-viewer/      Browser UI (Vite)
 xframe/               xFrame.present content plugin (netlab topology viz)
-docs/                 GitHub Pages build of the lab viewer
+docs/                 Generated GitHub Pages build (not tracked)
 tools/                embed-data, sync-docs, …
 ```
 
@@ -101,3 +101,5 @@ Netlab.js targets semantic compatibility with Netlab's data-modeling and transfo
 ## License
 
 Apache License 2.0.
+
+GitHub Pages is deployed from a workflow artifact. Set the repository Pages source to **GitHub Actions**; generated `docs/` files are not committed.
