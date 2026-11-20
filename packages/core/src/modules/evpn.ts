@@ -28,9 +28,11 @@ function bgpAsn(topology: Topology, node?: Node): number | undefined {
 export function module_init(topology: Topology, _ctx: TransformContext): void {
   if (!topology.evpn) topology.evpn = {};
 
-  // EVPN forces VXLAN control-plane flooding
-  if (!topology.vxlan) topology.vxlan = {};
-  (topology.vxlan as JsonObject).flooding = "evpn";
+  // VXLAN transport uses EVPN control-plane flooding.
+  if ((topology.evpn as JsonObject).transport !== "mpls" && (topology.evpn as JsonObject).transport !== "sr") {
+    if (!topology.vxlan) topology.vxlan = {};
+    (topology.vxlan as JsonObject).flooding = "evpn";
+  }
 }
 
 export function module_pre_transform(topology: Topology, _ctx: TransformContext): void {
@@ -90,7 +92,7 @@ export function node_post_transform(node: Node, topology: Topology, _ctx: Transf
       : Array.isArray(topoEvpn.vlans)
         ? topoEvpn.vlans.map(String)
         : Object.keys(vlans)
-  ).filter((n) => typeof vlans[n]?.vni === "number");
+  ).filter((n) => vlans[n] && (ne.transport !== "vxlan" || typeof vlans[n]?.vni === "number"));
   ne.vlans = names;
 
   const routerId = String((node.bgp as JsonObject | undefined)?.router_id ?? "");

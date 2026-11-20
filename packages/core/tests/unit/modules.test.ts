@@ -286,3 +286,35 @@ links:
     assert.equal((s1.vlans as Record<string, { mode?: string }>).red?.mode, "bridge");
   });
 });
+
+describe("MPLS EVPN bridging", () => {
+  it("transforms grouped MPLS LDP nodes and retains EVPN VLANs without VXLAN", () => {
+    const { topology, diagnostics } = transform(loadTopologyString(`
+defaults.device: none
+mpls.ldp: true
+evpn.transport: mpls
+evpn.vlans: [red, blue]
+bgp.as: 65000
+groups:
+  _auto_create: true
+  switches:
+    members: [dut, s2]
+    module: [vlan, mpls, ospf, bgp, evpn]
+  core:
+    members: [p]
+    module: [ospf, mpls]
+vlans:
+  red: {mode: bridge}
+  blue: {mode: bridge}
+links: [dut-p, p-s2]
+`));
+    assert.equal(diagnostics.hasErrors(), false, JSON.stringify(diagnostics.list()));
+    for (const name of ["dut", "s2", "p"]) {
+      const node = topology.nodes![name]!;
+      assert.ok(node.ldp);
+      assert.ok(node.interfaces!.some((intf) => intf.ldp));
+    }
+    assert.deepEqual((topology.nodes!.dut!.evpn as {vlans: string[]}).vlans, ["red", "blue"]);
+    assert.equal(topology.vxlan, undefined);
+  });
+});

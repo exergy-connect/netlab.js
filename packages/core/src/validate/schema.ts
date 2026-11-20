@@ -34,6 +34,7 @@ export function loadNetlabYang(yangDir: string = defaultYangDir()): YangModule {
     "modules/netlab-isis.yang",
     "modules/netlab-vxlan.yang",
     "modules/netlab-evpn.yang",
+    "modules/netlab-mpls.yang",
   ]) {
     const extraPath = path.join(yangDir, extra);
     try {
