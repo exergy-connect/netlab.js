@@ -295,3 +295,28 @@ links: [a-b]
   assert.equal(invalid.stages.user_input, false);
   assert.ok(invalid.diagnostics.list().some(d => d.module === "xyang" && d.message.includes("mtu")), JSON.stringify(invalid.diagnostics.list()));
 });
+
+it("validates IS-IS link attributes and routing import shorthand", () => {
+  const topology = {
+    nodes: {
+      a: { name: "a", device: "none", isis: { import: ["bgp", "ospf"] }, ospf: { import: { isis: true } } },
+      b: { name: "b", device: "none" },
+    },
+    links: [{ linkindex: 1, isis: { cost: 70000, network_type: false }, interfaces: [
+      { node: "a", isis: { type: "level-1", cost: 17, passive: true } }, { node: "b" },
+    ] }],
+  } as unknown as Topology;
+  const original = structuredClone(topology);
+  const valid = validateAt(topology, "user_input", { yangDir });
+  assert.equal(valid.ok, true, JSON.stringify(valid.errors));
+  delete topology.stage;
+  assert.deepEqual(topology, original);
+  for (const [key, value] of [["cost", 0], ["metric", 16777216], ["type", "invalid"], ["network_type", "broadcast"]] as const) {
+    const invalid = structuredClone(topology);
+    (invalid.links![0]!.isis as Record<string, unknown>)[key] = value;
+    assert.equal(validateAt(invalid, "user_input", { yangDir }).ok, false, `${key}: ${value}`);
+  }
+  const invalidImport = structuredClone(topology);
+  (invalidImport.nodes!.a!.isis as Record<string, unknown>).import = { bgp: "invalid" };
+  assert.equal(validateAt(invalidImport, "user_input", { yangDir }).ok, false);
+});

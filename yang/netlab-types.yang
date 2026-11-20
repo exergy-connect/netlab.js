@@ -11,6 +11,17 @@ module netlab-types {
       "Add af-flags grouping; device-name remains an open id string.";
   }
 
+  grouping routing-imports {
+    description "Routing protocol import settings.";
+    list import {
+      key "protocol";
+      leaf protocol { type string; }
+      leaf enabled { type boolean; }
+      leaf auto { type boolean; }
+      leaf policy { type string; }
+    }
+  }
+
   grouping af-flags {
     description "Per-AF boolean enable flags (shared by topology and modules).";
     container af {
