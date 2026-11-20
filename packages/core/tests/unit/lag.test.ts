@@ -102,3 +102,46 @@ links:
   assert.equal(topology.nodes!.a!.interfaces!.find(i => i.type === "lag")!.neighbors?.[0]?.node, "c");
   assert.equal(topology.nodes!.a!.interfaces!.filter(i => i.type === "p2p").length, 3);
 });
+
+for (const [file, expectedEsi, expectedLacp] of [
+  ["01-esi-lag", "00:11:22:33:44:55:66:77:88:99", "02:00:01:00:01:00"],
+  ["02-esi-lag-auto-id", "00:02:00:00:00:00:01:00:00:00", "02:00:00:00:00:01"],
+]) {
+  it(`transforms ESI-LAG integration case ${file}`, () => {
+    const input = loadTopologyString(readFileSync(`tests/fixtures/integration/evpn.multihoming/${file}.yml`, "utf8"));
+    const { topology, diagnostics, stages } = transform(input);
+    assert.equal(stages.user_input, true);
+    assert.deepEqual(diagnostics.list().filter(d => d.severity === "error"), []);
+    for (const nodeName of ["dut_s1", "dut_s2"]) {
+      const interfaces = topology.nodes![nodeName]!.interfaces!;
+      const bond = interfaces.find(i => i.type === "lag")!;
+      const evpn = bond.evpn as JsonObject;
+      assert.equal((evpn._esi as JsonObject).id, expectedEsi);
+      assert.equal((bond.lag as JsonObject).lacp_system_id, expectedLacp);
+      assert.equal((bond.lag as JsonObject)._mlag, undefined);
+      assert.deepEqual(bond.neighbors?.map(n => n.node), ["x1"]);
+      const member = interfaces.find(i => (i.lag as JsonObject | undefined)?.parent === bond.ifname)!;
+      assert.equal((member.evpn as JsonObject | undefined)?.es, undefined);
+    }
+    const client = topology.nodes!.x1!.interfaces!;
+    const bond = client.find(i => i.type === "lag")!;
+    assert.equal(client.filter(i => (i.lag as JsonObject | undefined)?.parent === bond.ifname).length, 2);
+  });
+}
+
+it("rejects ESI-LAG with mismatched LACP identifiers", () => {
+  const { diagnostics } = transform(loadTopologyString(`
+defaults.device: none
+plugin: [evpn.multihoming]
+module: [lag, evpn, vlan]
+nodes: [a, b, c]
+evpn.ethernet_segments.seg.id: "00:11:22:33:44:55:66:77:88:99"
+links:
+  - lag.members:
+      - a: { evpn.es: seg, lag.lacp_system_id: 1 }
+        c:
+      - b: { evpn.es: seg, lag.lacp_system_id: 2 }
+        c:
+`));
+  assert.ok(diagnostics.list().some(d => d.severity === "error" && d.message.includes("Mismatched LACP")));
+});
