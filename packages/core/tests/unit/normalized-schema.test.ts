@@ -8,6 +8,13 @@ import { loadTopologyString } from "../../src/load/load.js";
 import { exportMachineTopology } from "../../src/transform/machine-export.js";
 import { transformAndExport } from "../../src/transform/orchestrator.js";
 
+// The normalized schema deliberately models the core, not topology metadata.
+function modeledCore<T>(input: T): T {
+  const copy = structuredClone(input) as any;
+  for (const field of ["addressing", "groups", "message", "validate", "vrf"]) delete copy.topology[field];
+  return copy;
+}
+
 const yangDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../yang");
 
 it("models the normalized core graph and rejects unsupported devices", () => {
@@ -24,11 +31,11 @@ links: [[r1, r2]]
   assert.ok(result.topology.nodes?.r1);
   assert.equal(Object.hasOwn(output.topology, "defaults"), false);
   assert.ok(result.topology.defaults);
-  const valid = validator.validate(output, { nativeJson: true });
+  const valid = validator.validate(modeledCore(output), { nativeJson: true });
   assert.equal(valid.isValid, true, valid.errors.join("\n"));
   const invalid = structuredClone(output);
   invalid.topology.nodes[0]!.device = "unsupported";
-  assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
+  assert.equal(validator.validate(modeledCore(invalid), { nativeJson: true }).isValid, false);
 });
 
 
@@ -36,7 +43,7 @@ it("validates the BGP integration reference against the output model", () => {
   const parser = new YangParser({ includePath: [yangDir], expandUses: true });
   const validator = new YangValidator(parser.parseFile(path.join(yangDir, "netlab.js.yang")));
   const reference = JSON.parse(readFileSync(path.join(yangDir, "../reference/integration/bgp/01-ebgp-session.json"), "utf8"));
-  const result = validator.validate(reference, { nativeJson: true });
+  const result = validator.validate(modeledCore(reference), { nativeJson: true });
   assert.equal(result.isValid, true, result.errors.join("\n"));
   for (const mutate of [
     (data: any) => { data.topology.nodes[0].bgp.as = "invalid"; },
@@ -47,7 +54,7 @@ it("validates the BGP integration reference against the output model", () => {
   ]) {
     const invalid = structuredClone(reference);
     mutate(invalid);
-    assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
+    assert.equal(validator.validate(modeledCore(invalid), { nativeJson: true }).isValid, false);
   }
 });
 
@@ -72,14 +79,14 @@ links:
 `), { yangDir });
   assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
   const output = exportMachineTopology(result.topology);
-  const validation = validator.validate(output, { nativeJson: true });
+  const validation = validator.validate(modeledCore(output), { nativeJson: true });
   assert.equal(validation.isValid, true, validation.errors.join("\n"));
   const invalid = structuredClone(output) as any;
   invalid.topology.nodes[0].bgp.sessions.ipv4 = ["invalid"];
-  assert.equal(validator.validate(invalid, { nativeJson: true }).isValid, false);
+  assert.equal(validator.validate(modeledCore(invalid), { nativeJson: true }).isValid, false);
   const invalidLink = structuredClone(output) as any;
   invalidLink.topology.links[0].interfaces[0].bgp.local_as = "invalid";
-  assert.equal(validator.validate(invalidLink, { nativeJson: true }).isValid, false);
+  assert.equal(validator.validate(modeledCore(invalidLink), { nativeJson: true }).isValid, false);
 });
 
 it("validates BGP AS lists, confederations, import policies and VRFs", async () => {
@@ -105,7 +112,7 @@ nodes:
   output.topology.nodes[0].bgp.neighbors = [{name: "r1", as: 65000, type: "ibgp", ipv6: "2001:db8::1"}];
   output.topology.nodes[0].bgp.import = { ospf: {policy: "permit"}, connected: true };
   output.topology.nodes[0].vrfs.red.bgp.import = { static: {policy: "permit"} };
-  const validate = (obj: any) => validator.validate(projectBgpDictionaries(obj));
+  const validate = (obj: any) => validator.validate(modeledCore(projectBgpDictionaries(obj)), { nativeJson: true });
   const valid = validate(output);
   assert.equal(valid.isValid, true, valid.errors.join("\n"));
   for (const mutate of [
@@ -137,6 +144,6 @@ nodes: [a, b]
 links: [a-b]
 `));
   assert.equal(result.diagnostics.hasErrors(), false, JSON.stringify(result.diagnostics.list()));
-  const valid = validator.validate(projectBgpDictionaries(exportMachineTopology(result.topology)));
+  const valid = validator.validate(modeledCore(projectBgpDictionaries(exportMachineTopology(result.topology))), { nativeJson: true });
   assert.equal(valid.isValid, true, valid.errors.join("\n"));
 });

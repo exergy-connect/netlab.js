@@ -198,6 +198,10 @@ function adaptBgp(parent: JsonObject): void {
   parent.bgp = bgp;
   for (const key of ["as_list", "confederation", "import"]) {
     const value = bgp[key];
+    if (key === "import" && Array.isArray(value)) {
+      bgp[key] = value.map(item => typeof item === "string" ? { protocol: item } : item);
+      continue;
+    }
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     bgp[key] = Object.entries(value).map(([name, setting]) => ({
       ...(setting && typeof setting === "object" && !Array.isArray(setting) ? setting : key === "import" && setting !== null ? { enabled: setting } : {}),
