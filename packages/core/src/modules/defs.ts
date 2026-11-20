@@ -1,6 +1,5 @@
-import * as yaml from "js-yaml";
 import type { JsonObject } from "../types.js";
-import { MODULE_YAML } from "./embedded-yaml.js";
+import { MODULE_DATA } from "./embedded-data.js";
 
 /** Meta keys never merged from defaults into topology/node module params (Netlab). */
 export const MODULE_META_KEYS = [
@@ -37,10 +36,9 @@ export function loadModuleDefs(): Record<string, ModuleDef> {
   if (cache) return cache;
   const defs: Record<string, ModuleDef> = {};
   for (const name of SUPPORTED) {
-    const text = MODULE_YAML[name];
-    if (!text) continue;
-    const raw = (yaml.load(text) as JsonObject) ?? {};
-    defs[name] = raw as ModuleDef;
+    const data = MODULE_DATA[name];
+    if (!data) continue;
+    defs[name] = structuredClone(data) as ModuleDef;
   }
   cache = defs;
   return defs;
@@ -99,12 +97,12 @@ export function moduleNodeCopy(name: string): string[] {
   return Array.isArray(copy) ? copy.map(String) : [];
 }
 
-/** Full module YAML blobs for inclusion under topology.defaults. */
+/** Full module defaults for inclusion under topology.defaults. */
 export function moduleDefaultsForSystem(): Record<string, JsonObject> {
   const defs = loadModuleDefs();
   const out: Record<string, JsonObject> = {};
   for (const [name, def] of Object.entries(defs)) {
-    out[name] = { ...def };
+    out[name] = structuredClone(def);
   }
   return out;
 }
