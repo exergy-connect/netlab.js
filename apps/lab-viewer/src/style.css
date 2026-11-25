@@ -342,6 +342,8 @@ pre {
 .edge { cursor: pointer; pointer-events: stroke; stroke-width: 8; stroke-opacity: 0.65; }
 .lag-bond { fill: none; stroke: #fbbf24; stroke-width: 2; cursor: pointer; pointer-events: stroke; }
 .lag-bond:hover, .lag-bond:focus, .lag-bond.is-selected { stroke: #fff0b3; stroke-width: 3; }
+.lan-hub { fill: var(--edge); stroke: #0c1015; stroke-width: 2; cursor: pointer; }
+.lan-hub:hover, .lan-hub:focus, .lan-hub.is-selected { fill: #fbbf24; }
 .interface-bubble { fill: #0c1015; stroke: #fbbf24; stroke-width: 2; cursor: pointer; }
 .node { cursor: pointer; }
 .edge:hover, .edge:focus, .edge.is-selected { stroke: #fbbf24; stroke-opacity: 1; }

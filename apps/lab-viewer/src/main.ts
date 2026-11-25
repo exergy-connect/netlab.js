@@ -384,9 +384,72 @@ function renderGraph(topology: Topology): void {
       ? [lag._parentindex] : [];
   }));
   const lagEndpoints = new Map<string, { node: string; parent: number; points: { x: number; y: number }[] }>();
+  type LinkEnd = NonNullable<typeof links[number]["interfaces"]>[number];
+  // Draw one link end on the segment from its node towards `to`: OSPF color up
+  // to `ospfSpan`, the interface bubble, and the address label anchor.
+  const drawEnd = (link: typeof links[number], end: LinkEnd, x1: number, y1: number, x2: number, y2: number, ospfSpan: number, labelAt: number) => {
+    const dx = x2 - x1, dy = y2 - y1, length = Math.hypot(dx, dy) || 1;
+    const node = topology.nodes?.[end.node!];
+    const intf = node?.interfaces?.find((candidate) =>
+      candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex),
+    ) ?? end;
+    const area = intf?.ospf && typeof intf.ospf === "object" && !Array.isArray(intf.ospf) ? intf.ospf.area : undefined;
+    const color = areaColor(area);
+    if (color) ospfLayer.append(svg("line", { x1, y1, x2: x1 + dx * ospfSpan, y2: y1 + dy * ospfSpan, stroke: color, class: "ospf-link" }));
+    represented.add(intf);
+    let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const flip = angle > 90 || angle < -90;
+    if (flip) angle += angle > 90 ? -180 : 180;
+    linkLabels.set(intf, { x: x1 + dx * labelAt, y: y1 + dy * labelAt, angle, side: flip ? 1 : -1 });
+    const t = Math.min(0.9 * ospfSpan, (radiusFor(end.node!) + 14) / length);
+    const point = { x: x1 + dx * t, y: y1 + dy * t };
+    const bubble = svg("circle", { cx: point.x, cy: point.y, r: 7, class: "interface-bubble" });
+    interfacePositions.set(intf, point);
+    const lag = link.lag;
+    const parent = lag && typeof lag === "object" && !Array.isArray(lag) ? lag._parentindex : undefined;
+    if (typeof parent === "number") {
+      const key = `${parent}\0${end.node}`;
+      const group = lagEndpoints.get(key) ?? { node: end.node!, parent, points: [] };
+      group.points.push(point);
+      lagEndpoints.set(key, group);
+    }
+    interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
+    interfaceLayer.append(bubble);
+    decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], (intf.type === "svi" || intf.type === "vlan_member"));
+  };
   for (const link of topology.links ?? []) {
     if (link.type === "vlan_member" || (link.type === "lag" && lagParents.has(link.linkindex ?? -1))) continue;
     const ends = (link.interfaces ?? []).filter((end) => end.node && pos.has(end.node));
+    // A multi-access segment is one link: draw it as a hub with a spoke per
+    // node rather than a mesh, which would look like parallel p2p links.
+    if (new Set(ends.map((end) => end.node)).size > 2) {
+      const points = ends.map((end) => pos.get(end.node!)!);
+      const centroid = { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length };
+      const clearance = (c: { x: number; y: number }) => Math.min(...nodes.map((name) => {
+        const p = pos.get(name)!;
+        return Math.hypot(c.x - p.x, c.y - p.y) - radiusFor(name);
+      }));
+      let hub = centroid;
+      for (let ring = 1; clearance(hub) < 40 && ring <= 8; ring++) {
+        const candidates = Array.from({ length: 12 }, (_, i) => ({ x: centroid.x + Math.cos(i * Math.PI / 6) * ring * 20, y: centroid.y + Math.sin(i * Math.PI / 6) * ring * 20 }));
+        hub = candidates.reduce((best, c) => clearance(c) > clearance(best) ? c : best, hub);
+      }
+      const title = `LAN ${ends.map((end) => end.node).join(" – ")}`;
+      for (const end of ends) {
+        const p = pos.get(end.node!)!;
+        const spoke = svg("line", { x1: p.x, y1: p.y, x2: hub.x, y2: hub.y, class: "edge" });
+        interactive(spoke, title, link);
+        linkLayer.append(spoke);
+      }
+      const marker = svg("circle", { cx: hub.x, cy: hub.y, r: 6, class: "lan-hub" });
+      interactive(marker, title, link);
+      linkLayer.append(marker);
+      for (const end of ends) {
+        const p = pos.get(end.node!)!;
+        drawEnd(link, end, p.x, p.y, hub.x, hub.y, 1, 0.5);
+      }
+      continue;
+    }
     if (ends.length === 1) {
       const end = ends[0]!;
       const p = pos.get(end.node!)!;
@@ -412,17 +475,6 @@ function renderGraph(topology: Topology): void {
       const line = svg("line", { x1, y1, x2, y2, class: "edge" });
       interactive(line, `Link ${first.node} – ${second.node}`, link);
       linkLayer.append(line);
-      for (const [end, t1, t2] of [[first, 0, 0.5], [second, 0.5, 1]] as const) {
-        const intf = topology.nodes?.[end.node!]?.interfaces?.find((candidate) =>
-          candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex));
-        const area = intf?.ospf && typeof intf.ospf === "object" && !Array.isArray(intf.ospf) ? intf.ospf.area : undefined;
-        const color = areaColor(area);
-        if (color) ospfLayer.append(svg("line", {
-          x1: x1 + (x2 - x1) * t1, y1: y1 + (y2 - y1) * t1,
-          x2: x1 + (x2 - x1) * t2, y2: y1 + (y2 - y1) * t2,
-          stroke: color, class: "ospf-link",
-        }));
-      }
       // Match eBGP neighbors to this link's interface so parallel links remain distinct.
       const hasEbgp = [[first, second], [second, first]].some(([local, remote]) => {
         const neighbors = topology.nodes?.[local!.node!]?.bgp?.neighbors;
@@ -435,32 +487,8 @@ function renderGraph(topology: Topology): void {
         x1: x1 - dy / length * 5, y1: y1 + dx / length * 5,
         x2: x2 - dy / length * 5, y2: y2 + dx / length * 5, class: "bgp-ebgp",
       }));
-      for (const [end, t] of [[first, Math.min(0.45, (radiusFor(first.node!) + 14) / length)], [second, Math.max(0.55, 1 - (radiusFor(second.node!) + 14) / length)]] as const) {
-        const node = topology.nodes?.[end.node!];
-        const intf = node?.interfaces?.find((candidate) =>
-          candidate.linkindex === link.linkindex && (end.ifindex == null || candidate.ifindex === end.ifindex),
-        ) ?? end;
-        represented.add(intf);
-        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-        const flip = angle > 90 || angle < -90;
-        if (flip) angle += angle > 90 ? -180 : 180;
-        const endpoint = end === first ? 0.32 : 0.68;
-        linkLabels.set(intf, { x: x1 + (x2 - x1) * endpoint, y: y1 + (y2 - y1) * endpoint, angle, side: (end === first ? -1 : 1) * (flip ? -1 : 1) });
-        const bubble = svg("circle", { cx: x1 + (x2 - x1) * t, cy: y1 + (y2 - y1) * t, r: 7, class: "interface-bubble" });
-        const point = { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t };
-        interfacePositions.set(intf, point);
-        const lag = link.lag;
-        const parent = lag && typeof lag === "object" && !Array.isArray(lag) ? lag._parentindex : undefined;
-        if (typeof parent === "number") {
-          const key = `${parent}\0${end.node}`;
-          const group = lagEndpoints.get(key) ?? { node: end.node!, parent, points: [] };
-          group.points.push(point);
-          lagEndpoints.set(key, group);
-        }
-        interactive(bubble, `Interface ${end.node} · ${intf.ifname ?? end.ifname ?? "unnamed"}`, intf);
-        interfaceLayer.append(bubble);
-        decorateVlan(bubble, [...new Set([...vlanNames(intf), ...vlanNames(end), ...vlanNames(link)])], (intf.type === "svi" || intf.type === "vlan_member"));
-      }
+      drawEnd(link, first, x1, y1, x2, y2, 0.5, 0.32);
+      drawEnd(link, second, x2, y2, x1, y1, 0.5, 0.32);
     }
   }
   // A LAG is a logical interface, not another physical edge. Connect its
