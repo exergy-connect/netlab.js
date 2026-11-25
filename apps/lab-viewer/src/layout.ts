@@ -356,6 +356,12 @@ export function layoutTopology(
   }
   for (const group of groups.values()) group.sort((a, b) => (nodeId(a) ?? Infinity) - (nodeId(b) ?? Infinity) || a.localeCompare(b));
   const adjacent = (a: string, b: string) => edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+  const distanceToSegment = (p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared)) : 0;
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  };
   const reflected = (p: { x: number; y: number }, q: { x: number; y: number }) =>
     Math.abs(p.x + q.x) < 1e-6 && Math.abs(p.y - q.y) < 1e-6;
   const mirroredCore = (left: string, right: string) => core.every((node) => {
@@ -410,11 +416,22 @@ export function layoutTopology(
         if (Math.hypot(candidate.x - p.x, candidate.y - p.y) < radius(name) + radius(other) + 35) { collision = true; break; }
       }
       if (collision) continue;
+      // Keep both existing links and the new host's links clear of unrelated nodes.
+      let obstructions = 0;
+      for (const [a, b] of edges) {
+        const p = a === name ? candidate : positions.get(a);
+        const q = b === name ? candidate : positions.get(b);
+        if (!p || !q) continue;
+        if (a !== name && b !== name && distanceToSegment(candidate, p, q) < radius(name) + 20) obstructions++;
+        if (a === name || b === name) for (const [other, point] of positions) {
+          if (other !== a && other !== b && distanceToSegment(point, p, q) < radius(other) + 20) obstructions++;
+        }
+      }
       const points = [...positions.values(), candidate];
       const w = Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x)) + 2 * spacing;
       const h = Math.max(...points.map((p) => p.y)) - Math.min(...points.map((p) => p.y)) + 2 * spacing;
       const fit = Math.max(w / ratio, h);
-      const candidateScore = fit + extra * 0.8 + Math.abs(step > 12 ? 24 - step : step) * 0.1;
+      const candidateScore = obstructions * 10000 + fit + extra * 0.8 + Math.abs(step > 12 ? 24 - step : step) * 0.1;
       if (candidateScore < bestScore) { bestScore = candidateScore; choice = candidate; }
     }
     positions.set(name, choice!);

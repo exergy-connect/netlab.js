@@ -18,6 +18,13 @@ describe("viewer topology layout", () => {
         const a = layout.get(names[i]!)!, b = layout.get(other)!;
         assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 165, `${names[i]} overlaps ${other}`);
       }
+      for (const [a, b] of edges) for (const name of names) {
+        if (name === a || name === b) continue;
+        const p = layout.get(a)!, q = layout.get(b)!, r = layout.get(name)!;
+        const dx = q.x - p.x, dy = q.y - p.y;
+        const t = Math.max(0, Math.min(1, ((r.x - p.x) * dx + (r.y - p.y) * dy) / (dx * dx + dy * dy)));
+        assert.ok(Math.hypot(r.x - p.x - t * dx, r.y - p.y - t * dy) >= 65, `${a}-${b} passes through ${name} at aspect ${aspect}`);
+      }
     }
   });
 
