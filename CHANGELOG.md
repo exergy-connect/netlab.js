@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Shared MLAG VTEP (lag module):** MLAG pairs running VXLAN get an anycast VTEP loopback from the `mlag_vtep` pool (or the peer's `loopback.pool`), replacing Netlab's `mlag.vtep` plugin; disable per node with `lag.mlag.vtep: false`. Devices with `features.mlag_vtep.evpn.vtep_source_loopback` source EVPN VXLAN from their own loopback. Covered by the upstream `mlag.vtep` integration labs, validated against the input YANG model.
+- **Link groups:** `links` may be a dictionary of named link groups (`links.<group>[n]`), as in Netlab.
+- **Loopback pools:** node and group `loopback.pool` select the pool for the node loopback.
 - **Lab viewer examples:** select topology YAML from the BGP basic labs and Netlab integration repositories on GitHub.
 - **xFrame plugin:** render Netlab topologies as layered static SVGs or interactive diagrams with layer filters and click-to-zoom.
 

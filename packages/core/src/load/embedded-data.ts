@@ -25,6 +25,10 @@ export const DEFAULTS_DATA: Record<string, JsonObject> = {
     "vrf_loopback": {
       "ipv4": "10.2.0.0/24",
       "prefix": 32
+    },
+    "mlag_vtep": {
+      "ipv4": "10.101.101.0/24",
+      "prefix": 32
     }
   },
   "attributes": {

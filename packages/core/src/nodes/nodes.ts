@@ -123,7 +123,8 @@ export function transformNodes(topology: Topology): void {
 
     if ((node as Record<string, unknown>).loopback !== false && (node.role === "router" || node.role === "gateway" || !node.role)) {
       const loName = formatIfName(String(def.loopback_interface_name ?? "lo{ifindex}"), 0);
-      const prefix = allocateNthFromPool(topology, "loopback", id);
+      const pool = (node.loopback as JsonObject | undefined)?.pool;
+      const prefix = allocateNthFromPool(topology, typeof pool === "string" ? pool : "loopback", id);
       const loopback: JsonObject = {
         ifindex: 0,
         ifname: loName || "lo",

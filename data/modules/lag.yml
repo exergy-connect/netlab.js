@@ -9,6 +9,7 @@ attributes:
   node:
     lacp: str
     lacp_mode: str
+    mlag.vtep: bool           # Set to false to disable the shared MLAG VTEP on a node
   link:
     members: list
     ifindex: int

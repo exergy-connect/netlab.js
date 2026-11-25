@@ -1,5 +1,7 @@
 import { adjustLinkObject } from "../links/links.js";
-import type { JsonObject, Link, Topology, TransformContext } from "../types.js";
+import { allocateNextFromPools, hostInSubnet } from "../addressing/ipam.js";
+import { getDevice } from "../devices/registry.js";
+import type { JsonObject, Link, Node, Topology, TransformContext } from "../types.js";
 
 export const name = "lag";
 
@@ -76,6 +78,7 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
     }
     pairs.set(nodes[0]!, nodes[1]!);
     pairs.set(nodes[1]!, nodes[0]!);
+    addSharedVtep(topology, nodes, ctx);
     link.interfaces = members[0]!.interfaces;
     link.type = "p2p";
     link.prefix = false as never;
@@ -185,6 +188,63 @@ export function module_pre_transform(topology: Topology, ctx: TransformContext):
       links.push(physical);
     }
   }
+}
+
+const MLAG_VTEP_POOL = "mlag_vtep";
+
+/**
+ * Give an MLAG pair running VXLAN one anycast VTEP (Netlab mlag.vtep): a
+ * loopback with the same address on both peers, marked with vxlan.vtep so the
+ * VXLAN module selects it. Disable per node with lag.mlag.vtep: false.
+ */
+function addSharedVtep(topology: Topology, peers: string[], ctx: TransformContext): void {
+  const enabled = peers.filter(n => {
+    const node = topology.nodes![n]!;
+    return (node.module ?? []).includes("vxlan") && ((node.lag as JsonObject | undefined)?.mlag as JsonObject | undefined)?.vtep !== false;
+  });
+  if (!enabled.length) return;
+  const af = (topology.vxlan as JsonObject | undefined)?.use_v6_vtep ? "ipv6" : "ipv4";
+  const configured = (topology.nodes![enabled[0]!]!.loopback as JsonObject | undefined)?.pool;
+  const pool = typeof configured === "string" ? configured : MLAG_VTEP_POOL;
+  const subnet = allocateNextFromPools(topology, [pool, "vrf_loopback"])[af];
+  if (typeof subnet !== "string") {
+    ctx.diagnostics.error({ module: name, code: "MISSING", category: "MISSING", message: `Loopback pool ${pool} does not provide an ${af.toUpperCase()} address to use as shared MLAG VTEP` });
+    return;
+  }
+  // Host prefix as-is, otherwise the first host (as for node loopbacks).
+  const prefix = /\/(32|128)$/.test(subnet) ? subnet : hostInSubnet(subnet, 1);
+  const links = topology.links ?? (topology.links = []);
+  for (const node of enabled) {
+    links.push({
+      type: "loopback",
+      name: `MLAG VTEP VXLAN interface shared between ${peers.join(" - ")}`,
+      interfaces: [{ node, [af]: prefix }],
+      prefix: { [af]: prefix },
+      vxlan: { vtep: true },
+      linkindex: links.length + 1,
+    } as Link);
+    const vxlan = (topology.nodes![node]!.vxlan ?? {}) as JsonObject;
+    vxlan._shared_vtep = prefix.split("/")[0]!;
+    topology.nodes![node]!.vxlan = vxlan;
+  }
+}
+
+/**
+ * With EVPN, devices that support it source VXLAN from their own loopback
+ * (unique next hop for RT5) while still advertising the shared VTEP for RT2.
+ * Runs after the VXLAN module has selected the shared VTEP.
+ */
+export function node_post_transform(node: Node, topology: Topology): void {
+  const vxlan = node.vxlan as JsonObject | undefined;
+  if (!vxlan?._shared_vtep || vxlan.flooding !== "evpn") return;
+  const features = (getDevice(String(node.device ?? "none")).features ?? {}) as JsonObject;
+  const evpn = ((features.mlag_vtep as JsonObject | undefined)?.evpn ?? {}) as JsonObject;
+  if (evpn.vtep_source_loopback !== true) return;
+  const af = vxlan.transport === "ipv6" ? "ipv6" : "ipv4";
+  const own = (node.loopback as JsonObject | undefined)?.[af];
+  if (typeof own !== "string") return;
+  vxlan.vtep = own.split("/")[0]!;
+  vxlan.vtep_interface = String((node.loopback as JsonObject).ifname ?? "lo");
 }
 
 /** Associate member ports with their aggregate interfaces. */

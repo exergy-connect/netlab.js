@@ -153,6 +153,11 @@ export function allocateNthFromPool(
   return allocateFromPools(topology, [poolName], n);
 }
 
+/** Allocate the next prefix from the first existing pool in the candidate list. */
+export function allocateNextFromPools(topology: Topology, candidates: string[]): JsonObject {
+  return allocateFromPools(topology, candidates);
+}
+
 export function assignInterfaceAddresses(topology: Topology, link: Link): void {
   const prefix = (link.prefix ?? {}) as JsonObject;
   const ifaces = [...(link.interfaces ?? [])].sort((a, b) =>
