@@ -398,8 +398,10 @@ export function layoutTopology(
     } : { x: 0, y: 0 };
     const startAngle = Math.hypot(anchor.x, anchor.y) > 1 ? Math.atan2(anchor.y, anchor.x) : 0;
     const minDistance = Math.max(34, ...peers.map(radius)) + radius(name) + 65;
-    let choice = { x: anchor.x + minDistance, y: anchor.y }, bestScore = Infinity;
-    for (let extra = 0; extra <= 350; extra += 35) for (let step = 0; step < 24; step++) {
+    let choice: { x: number; y: number } | undefined, bestScore = Infinity;
+    // Expand beyond the initial search area when a dense topology fills it.
+    // A finite set of placed nodes always leaves room on a sufficiently large ring.
+    for (let extra = 0; extra <= 350 || !choice; extra += 35) for (let step = 0; step < 24; step++) {
       const angle = startAngle + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * Math.PI / 12;
       const distance = minDistance + extra;
       const candidate = { x: anchor.x + distance * Math.cos(angle), y: anchor.y + distance * Math.sin(angle) };
@@ -415,7 +417,7 @@ export function layoutTopology(
       const candidateScore = fit + extra * 0.8 + Math.abs(step > 12 ? 24 - step : step) * 0.1;
       if (candidateScore < bestScore) { bestScore = candidateScore; choice = candidate; }
     }
-    positions.set(name, choice);
+    positions.set(name, choice!);
   }
   return positions;
 }

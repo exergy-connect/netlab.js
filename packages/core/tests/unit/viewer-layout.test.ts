@@ -1,8 +1,36 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { layoutTopology } from "../../../../apps/lab-viewer/src/layout.js";
+import { readFileSync } from "node:fs";
+import { collectEdges, layoutTopology, orderForMinimalCrossings } from "../../../../apps/lab-viewer/src/layout.js";
+import { loadTopologyString } from "../../src/load/load.js";
+import { transform } from "../../src/transform/orchestrator.js";
 
 describe("viewer topology layout", () => {
+  it("keeps nodes apart in the MLAG VTEP symmetric IRB lab", () => {
+    const input = loadTopologyString(readFileSync("tests/fixtures/integration/mlag.vtep/03-evpn-vxlan-symm-irb.yml", "utf8"));
+    const { topology } = transform(input);
+    const edges = collectEdges(topology);
+    const names = orderForMinimalCrossings(Object.keys(topology.nodes!), edges);
+    const hosts = new Set(names.filter((name) => topology.nodes![name]!.role === "host"));
+    for (const aspect of [0.6, 1, 1.6, 2.5]) {
+      const layout = layoutTopology(names, edges, hosts, () => 65, aspect, (name) => topology.nodes![name]!.id);
+      for (let i = 0; i < names.length; i++) for (const other of names.slice(i + 1)) {
+        const a = layout.get(names[i]!)!, b = layout.get(other)!;
+        assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 165, `${names[i]} overlaps ${other}`);
+      }
+    }
+  });
+
+  it("continues searching when many hosts fill the initial placement area", () => {
+    const names = ["router", ...Array.from({ length: 100 }, (_, i) => `h${i}`)];
+    const hosts = new Set(names.slice(1));
+    const edges = names.slice(1).map((name) => ["router", name] as const);
+    const layout = layoutTopology(names, edges, hosts, () => 34, 1.6);
+    for (let i = 0; i < names.length; i++) for (const other of names.slice(i + 1)) {
+      const a = layout.get(names[i]!)!, b = layout.get(other)!;
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 103 - 1e-6, `${names[i]} overlaps ${other}`);
+    }
+  });
   it("keeps links from passing through another router", () => {
     const names = ["r1", "r2", "r3"];
     const edges = [["r1", "r2"], ["r2", "r3"], ["r3", "r1"]] as const;
