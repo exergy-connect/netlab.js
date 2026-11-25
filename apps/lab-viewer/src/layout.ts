@@ -211,30 +211,6 @@ function improveByAdjacentSwaps(
   return best;
 }
 
-function factorialPermutations(nodes: readonly string[]): string[][] {
-  if (nodes.length === 0) return [[]];
-  if (nodes.length === 1) return [[nodes[0]!]];
-  const result: string[][] = [];
-  const used = new Array(nodes.length).fill(false);
-  const cur: string[] = [];
-  const dfs = () => {
-    if (cur.length === nodes.length) {
-      result.push(cur.slice());
-      return;
-    }
-    for (let i = 0; i < nodes.length; i++) {
-      if (used[i]) continue;
-      used[i] = true;
-      cur.push(nodes[i]!);
-      dfs();
-      cur.pop();
-      used[i] = false;
-    }
-  };
-  dfs();
-  return result;
-}
-
 /**
  * Return a circular node order that heuristically minimizes chord crossings.
  * For n ≤ 8, tries all permutations; otherwise BFS seed + barycenter + swaps.
@@ -251,14 +227,28 @@ export function orderForMinimalCrossings(
   if (nodes.length <= 8) {
     let best = nodes.slice();
     let bestScore = countCircularCrossings(best, edges);
-    for (const perm of factorialPermutations(nodes)) {
-      const score = countCircularCrossings(perm, edges);
-      if (score < bestScore) {
-        best = perm;
-        bestScore = score;
-        if (bestScore === 0) break;
+    const used = new Array(nodes.length).fill(false);
+    const permutation: string[] = [];
+    const search = (): void => {
+      if (bestScore === 0) return;
+      if (permutation.length === nodes.length) {
+        const score = countCircularCrossings(permutation, edges);
+        if (score < bestScore) {
+          best = permutation.slice();
+          bestScore = score;
+        }
+        return;
       }
-    }
+      for (let i = 0; i < nodes.length && bestScore > 0; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        permutation.push(nodes[i]!);
+        search();
+        permutation.pop();
+        used[i] = false;
+      }
+    };
+    search();
     return best;
   }
 
@@ -277,10 +267,6 @@ export function orderForMinimalCrossings(
     }
   }
 
-  // Also try reverse (reflection) of best
-  const reflected = best.slice().reverse();
-  const refScore = countCircularCrossings(reflected, edges);
-  if (refScore < bestScore) return reflected;
   return best;
 }
 
@@ -290,18 +276,30 @@ export function layoutTopology(
   radius: (name: string) => number, aspect: number,
   nodeId: (name: string) => number | undefined = () => undefined,
 ): Map<string, { x: number; y: number }> {
+  const radii = new Map(names.map((name) => [name, radius(name)]));
+  const ids = new Map(names.map((name) => [name, nodeId(name)]));
+  radius = (name) => radii.get(name)!;
+  nodeId = (name) => ids.get(name);
+  const neighbors = new Map(names.map((name) => [name, [] as string[]]));
+  for (const [a, b] of edges) {
+    neighbors.get(a)?.push(b);
+    neighbors.get(b)?.push(a);
+  }
   const ratio = Math.max(0.5, Math.min(4, Number.isFinite(aspect) ? aspect : 1.6));
   const coreNames = names.filter((name) => !hosts.has(name));
+  const coreSet = new Set(coreNames);
+  const hostNames = names.filter((name) => hosts.has(name));
   const core = orderForMinimalCrossings(coreNames, edges);
+  const coreEdges = edges.filter(([a, b]) => coreSet.has(a) && coreSet.has(b));
   const positions = new Map<string, { x: number; y: number }>();
   const spacing = 2 * Math.max(34, ...core.map(radius)) + 100;
   // Give links extra horizontal room on wide panels without stretching nodes.
   const horizontalSpacing = spacing * Math.max(1, Math.min(1.3, ratio * 0.7));
-  const hostDegree = (name: string) => edges.filter(([a, b]) => (a === name && hosts.has(b)) || (b === name && hosts.has(a))).length;
+  const hostDegrees = new Map(coreNames.map((name) => [name, neighbors.get(name)!.filter((neighbor) => hosts.has(neighbor)).length]));
   const score = (order: readonly string[], slots: readonly { x: number; y: number }[]) => {
     const lookup = new Map(order.map((name, i) => [name, slots[i]!]));
     let result = 0;
-    for (const [a, b] of edges) {
+    for (const [a, b] of coreEdges) {
       const p = lookup.get(a), q = lookup.get(b);
       if (!p || !q) continue;
       const vx = q.x - p.x, vy = q.y - p.y;
@@ -321,7 +319,7 @@ export function layoutTopology(
       const dx = lookup.get(a)!.x - lookup.get(b)!.x;
       if (dx && Math.sign(dx) !== Math.sign(idA - idB)) result += 0.3;
     }
-    for (const name of order) result -= hostDegree(name) * Math.abs(lookup.get(name)!.x) / spacing * 0.6;
+    for (const name of order) result -= hostDegrees.get(name)! * Math.abs(lookup.get(name)!.x) / spacing * 0.6;
     return result;
   };
   let chosenOrder = core.slice();
@@ -338,10 +336,10 @@ export function layoutTopology(
     while (improved) {
       improved = false;
       for (let i = 0; i < order.length; i++) for (let j = i + 1; j < order.length; j++) {
-        const trial = order.slice();
-        [trial[i], trial[j]] = [trial[j]!, trial[i]!];
-        const value = score(trial, slots);
-        if (value < best - 1e-9) { order = trial; best = value; improved = true; }
+        [order[i], order[j]] = [order[j]!, order[i]!];
+        const value = score(order, slots);
+        if (value < best - 1e-9) { best = value; improved = true; }
+        else [order[i], order[j]] = [order[j]!, order[i]!];
       }
     }
     const shape = Math.abs(Math.log((columns / Math.max(rows, 1)) / ratio));
@@ -350,12 +348,12 @@ export function layoutTopology(
   chosenOrder.forEach((name, i) => positions.set(name, chosenSlots[i]!));
   // Mirror matching host groups when their backbone positions and links mirror.
   const groups = new Map<string, string[]>();
-  for (const host of names.filter((name) => hosts.has(name))) {
-    const peers = edges.flatMap(([a, b]) => a === host && coreNames.includes(b) ? [b] : b === host && coreNames.includes(a) ? [a] : []);
+  for (const host of hostNames) {
+    const peers = neighbors.get(host)!.filter((peer) => coreSet.has(peer));
     if (peers.length === 1) groups.set(peers[0]!, [...(groups.get(peers[0]!) ?? []), host]);
   }
   for (const group of groups.values()) group.sort((a, b) => (nodeId(a) ?? Infinity) - (nodeId(b) ?? Infinity) || a.localeCompare(b));
-  const adjacent = (a: string, b: string) => edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+  const adjacent = (a: string, b: string) => neighbors.get(a)!.includes(b);
   const distanceToSegment = (p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) => {
     const dx = b.x - a.x, dy = b.y - a.y;
     const lengthSquared = dx * dx + dy * dy;
@@ -395,15 +393,25 @@ export function layoutTopology(
       break;
     }
   }
-  for (const name of names.filter((name) => hosts.has(name))) {
+  for (const name of hostNames) {
     if (positions.has(name)) continue;
-    const peers = edges.flatMap(([a, b]) => a === name ? [b] : b === name ? [a] : []).filter((peer) => positions.has(peer));
+    const peers = neighbors.get(name)!.filter((peer) => positions.has(peer));
     const anchor = peers.length ? {
       x: peers.reduce((sum, peer) => sum + positions.get(peer)!.x, 0) / peers.length,
       y: peers.reduce((sum, peer) => sum + positions.get(peer)!.y, 0) / peers.length,
     } : { x: 0, y: 0 };
     const startAngle = Math.hypot(anchor.x, anchor.y) > 1 ? Math.atan2(anchor.y, anchor.x) : 0;
     const minDistance = Math.max(34, ...peers.map(radius)) + radius(name) + 65;
+    const placed = [...positions];
+    const existingEdges = edges.flatMap(([a, b]) => {
+      const p = positions.get(a), q = positions.get(b);
+      return p && q ? [[p, q] as const] : [];
+    });
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [, p] of placed) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
     let choice: { x: number; y: number } | undefined, bestScore = Infinity;
     // Expand beyond the initial search area when a dense topology fills it.
     // A finite set of placed nodes always leaves room on a sufficiently large ring.
@@ -412,24 +420,20 @@ export function layoutTopology(
       const distance = minDistance + extra;
       const candidate = { x: anchor.x + distance * Math.cos(angle), y: anchor.y + distance * Math.sin(angle) };
       let collision = false;
-      for (const [other, p] of positions) {
+      for (const [other, p] of placed) {
         if (Math.hypot(candidate.x - p.x, candidate.y - p.y) < radius(name) + radius(other) + 35) { collision = true; break; }
       }
       if (collision) continue;
       // Keep both existing links and the new host's links clear of unrelated nodes.
       let obstructions = 0;
-      for (const [a, b] of edges) {
-        const p = a === name ? candidate : positions.get(a);
-        const q = b === name ? candidate : positions.get(b);
-        if (!p || !q) continue;
-        if (a !== name && b !== name && distanceToSegment(candidate, p, q) < radius(name) + 20) obstructions++;
-        if (a === name || b === name) for (const [other, point] of positions) {
-          if (other !== a && other !== b && distanceToSegment(point, p, q) < radius(other) + 20) obstructions++;
-        }
+      for (const [p, q] of existingEdges) {
+        if (distanceToSegment(candidate, p, q) < radius(name) + 20) obstructions++;
       }
-      const points = [...positions.values(), candidate];
-      const w = Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x)) + 2 * spacing;
-      const h = Math.max(...points.map((p) => p.y)) - Math.min(...points.map((p) => p.y)) + 2 * spacing;
+      for (const peer of peers) for (const [other, point] of placed) {
+        if (other !== peer && distanceToSegment(point, candidate, positions.get(peer)!) < radius(other) + 20) obstructions++;
+      }
+      const w = Math.max(maxX, candidate.x) - Math.min(minX, candidate.x) + 2 * spacing;
+      const h = Math.max(maxY, candidate.y) - Math.min(minY, candidate.y) + 2 * spacing;
       const fit = Math.max(w / ratio, h);
       const candidateScore = obstructions * 10000 + fit + extra * 0.8 + Math.abs(step > 12 ? 24 - step : step) * 0.1;
       if (candidateScore < bestScore) { bestScore = candidateScore; choice = candidate; }
