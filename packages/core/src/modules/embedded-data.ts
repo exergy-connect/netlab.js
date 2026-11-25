@@ -577,7 +577,8 @@ export const MODULE_DATA: Record<string, JsonObject> = {
       },
       "node": {
         "lacp": "str",
-        "lacp_mode": "str"
+        "lacp_mode": "str",
+        "mlag.vtep": "bool"
       },
       "link": {
         "members": "list",

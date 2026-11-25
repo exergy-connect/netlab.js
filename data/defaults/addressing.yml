@@ -17,3 +17,6 @@ l2only:
 vrf_loopback:
   ipv4: 10.2.0.0/24
   prefix: 32
+mlag_vtep:                    # Shared (anycast) VTEP loopbacks for MLAG pairs running VXLAN
+  ipv4: 10.101.101.0/24
+  prefix: 32

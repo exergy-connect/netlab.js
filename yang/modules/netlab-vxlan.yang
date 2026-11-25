@@ -43,6 +43,10 @@ module netlab-vxlan {
       uses vxlan-common;
       leaf vtep { type string; }
       leaf vtep_interface { type string; }
+      leaf _shared_vtep {
+        type string;
+        description "Anycast VTEP address shared with the MLAG peer.";
+      }
       leaf transport { type string; }
       leaf-list vtep_list { type string; }
       leaf-list l3vnis { type string; }

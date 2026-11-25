@@ -158,7 +158,8 @@ export function module_post_transform(topology: Topology, ctx: TransformContext)
         const list: string[] = [];
         for (const peer of peers) {
           const pv = (peer.vxlan as JsonObject | undefined)?.vtep;
-          if (typeof pv !== "string" || pv === vtep) continue;
+          // Skip our own (possibly shared MLAG) VTEP and anycast VTEPs already listed.
+          if (typeof pv !== "string" || pv === vtep || list.includes(pv)) continue;
           const peerVlans = (peer.vlans as Record<string, JsonObject> | undefined) ?? {};
           const match = Object.values(peerVlans).some((x) => x?.vni === vlan.vni);
           if (match) {

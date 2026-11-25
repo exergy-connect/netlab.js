@@ -369,6 +369,10 @@ module netlab-topology {
       }
       leaf netlab_phy_control { type boolean; }
       uses mtu;
+      container loopback {
+        description "Loopback settings inherited by group members.";
+        leaf pool { type string; }
+      }
       container clab { leaf image { type string; } }
       anydata vars {
         description "Group Ansible vars.";

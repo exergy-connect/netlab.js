@@ -4,6 +4,7 @@ module netlab-lag {
   prefix lag;
   import netlab-topology { prefix nt; }
   description "Link aggregation settings.";
+  revision 2026-11-24 { description "Shared MLAG VTEP (mlag.vtep)."; }
   revision 2026-11-20 { description "LAG attributes."; }
   grouping attributes {
     leaf ifindex { type uint32; }
@@ -19,6 +20,10 @@ module netlab-lag {
     container mlag {
       leaf peergroup { type union { type boolean; type uint32; } }
       leaf mac { type string; }
+      leaf vtep {
+        type boolean;
+        description "Use a shared (anycast) VXLAN VTEP on this MLAG pair; false disables it on a node.";
+      }
     }
   }
   augment "/nt:topology" { container lag { uses attributes; } }

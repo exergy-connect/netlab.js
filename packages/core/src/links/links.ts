@@ -31,21 +31,32 @@ export function canonicalizeLinks(
   const raw = topology.links;
   if (!raw) return [];
 
-  const list = Array.isArray(raw) ? raw : [];
   const out: Link[] = [];
-  let cnt = 0;
-
-  for (const item of list) {
-    cnt++;
-    const linkname = `links[${cnt}]`;
-    const link = adjustLinkObject(item, linkname, nodes, diagnostics);
-    if (!link) continue;
-    if (link.disable === true) continue;
-    link.linkindex = cnt;
-    link[INTERNAL_LINKNAME] = linkname;
-    delete link._linkname;
-    out.push(link);
-  }
+  // Netlab adjust_link_list: links may be a list, a string, or a dictionary
+  // of named link groups (links.<group>[n]), nested to any depth.
+  const walk = (links: unknown, path: string): void => {
+    if (Array.isArray(links)) {
+      let cnt = 0;
+      for (const item of links) {
+        cnt++;
+        const linkname = `${path}[${cnt}]`;
+        const link = adjustLinkObject(item, linkname, nodes, diagnostics);
+        if (!link || link.disable === true) continue;
+        link.linkindex = out.length + 1;
+        link[INTERNAL_LINKNAME] = linkname;
+        delete link._linkname;
+        out.push(link);
+      }
+    } else if (typeof links === "string") {
+      const link = adjustLinkObject(links, path, nodes, diagnostics);
+      if (link) { link.linkindex = out.length + 1; out.push(link); }
+    } else if (links && typeof links === "object") {
+      for (const [group, data] of Object.entries(links)) walk(data, `${path}.${group}`);
+    } else if (links !== null && links !== undefined) {
+      diagnostics?.error({ code: "TYPE", category: "TYPE", module: "links", message: `${path} must be a list or dictionary` });
+    }
+  };
+  walk(raw, "links");
 
   topology.links = out;
   return out;

@@ -31,4 +31,15 @@ describe("canonicalize", () => {
     assert.equal(topology.links![0]!.bandwidth, 1000);
     assert.equal(topology.links![0]!.interfaces!.length, 2);
   });
+
+  it("flattens dictionaries of named link groups (Netlab adjust_link_list)", () => {
+    const topology = {
+      nodes: createNodeDict(["r1", "r2", "r3"]),
+      links: { core: ["r1-r2", "r2-r3"], edge: { access: [["r1", "r3"]] } },
+    } as unknown as Topology;
+    canonicalizeLinks(topology);
+    assert.deepEqual(topology.links!.map(l => l.linkindex), [1, 2, 3]);
+    assert.deepEqual(topology.links!.map(l => l[INTERNAL_LINKNAME]), ["links.core[1]", "links.core[2]", "links.edge.access[1]"]);
+    assert.deepEqual(topology.links![2]!.interfaces!.map(i => i.node), ["r1", "r3"]);
+  });
 });

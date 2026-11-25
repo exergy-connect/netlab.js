@@ -94,6 +94,13 @@ export function copyGroupData(topology: Topology): void {
           node[name] = deepMerge(groupValue as JsonObject, nodeValue as JsonObject);
         }
       }
+      // Group loopback settings (e.g. loopback.pool) are member defaults.
+      const groupLoopback = (g as JsonObject).loopback;
+      if (groupLoopback && typeof groupLoopback === "object" && !Array.isArray(groupLoopback)) {
+        node.loopback = node.loopback && typeof node.loopback === "object"
+          ? deepMerge(groupLoopback as JsonObject, node.loopback)
+          : structuredClone(groupLoopback as JsonObject);
+      }
       if (g.node_data && typeof g.node_data === "object") {
         const merged = deepMerge(g.node_data as JsonObject, node as JsonObject);
         Object.assign(node, merged);
